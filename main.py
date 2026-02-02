@@ -20,15 +20,8 @@ async def on_ready():
 
     # نسجل أمر واحد فقط
     bot.tree.add_command(ping)
-
+bot.tree.add_command(embed)
     await bot.tree.sync()
     print("✅ Commands Synced")
-
-bot.tree.clear_commands(guild=None)
-
-bot.tree.add_command(ping)
-bot.tree.add_command(embed)
-
-await bot.tree.sync()
 
 bot.run(BOT_TOKEN)
