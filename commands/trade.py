@@ -38,16 +38,16 @@ class TradeView(View):
             color=0x2ecc71 if win else 0xe74c3c
         )
 
-        image_file = UP_IMG if result == "up" else DOWN_IMG
-        file = discord.File(image_file, filename="result.png")
+        image_path = UP_IMG if result == "up" else DOWN_IMG
+        file = discord.File(image_path, filename="result.png")
         emb.set_image(url="attachment://result.png")
 
         self.disable_all_items()
 
         await interaction.response.edit_message(
             embed=emb,
-            attachments=[file],
-            view=self
+            view=self,
+            files=[file]   # ✅ الصح
         )
 
 
@@ -73,5 +73,5 @@ async def trade(interaction: discord.Interaction, amount: int):
     await interaction.response.send_message(
         embed=emb,
         view=TradeView(amount),
-        attachments=[file]
+        files=[file]   # ✅ الصح
     )
