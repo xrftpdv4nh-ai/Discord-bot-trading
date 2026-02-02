@@ -48,8 +48,7 @@ class AdminCommands(app_commands.Group):
             color=embed_color
         )
 
-        embed.set_footer(text=f"By {interaction.user.name}")
-
+        # صورة اختيارية
         if image_url:
             embed.set_image(url=image_url)
 
