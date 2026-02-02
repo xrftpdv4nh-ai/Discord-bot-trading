@@ -35,7 +35,7 @@ class TradeView(View):
         await self.handle_trade(interaction, "down")
 
     async def handle_trade(self, interaction: discord.Interaction, choice: str):
-        # نأكّد التفاعل فورًا
+        # نثبت التفاعل
         await interaction.response.defer()
 
         result = random.choice(["up", "down"])
@@ -57,10 +57,12 @@ class TradeView(View):
 
         self.disable_all_items()
 
-        await interaction.message.edit(
+        # 👈 الرد الصح بعد defer
+        await interaction.followup.edit_message(
+            message_id=interaction.message.id,
             embed=emb,
             view=self,
-            attachments=[file]
+            files=[file]
         )
 
 
