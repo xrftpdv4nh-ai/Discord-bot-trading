@@ -24,7 +24,7 @@ async def on_ready():
     bot.tree.add_command(trade)
     bot.tree.add_command(clear)
     bot.tree.add_command(wallet)
-    bot.add_cog(AdminWallet(bot))
+    await bot.add_cog(AdminWallet(bot))
     
     await bot.tree.sync()
 
