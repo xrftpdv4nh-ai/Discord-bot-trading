@@ -4,7 +4,8 @@ from discord.ext import commands
 from config import BOT_TOKEN
 
 # نستورد أمر واحد بس بسيط
-from commands.ping import ping  
+from commands.ping import ping
+from commands.embed import embed
 
 intents = discord.Intents.default()
 
@@ -22,5 +23,12 @@ async def on_ready():
 
     await bot.tree.sync()
     print("✅ Commands Synced")
+
+bot.tree.clear_commands(guild=None)
+
+bot.tree.add_command(ping)
+bot.tree.add_command(embed)
+
+await bot.tree.sync()
 
 bot.run(BOT_TOKEN)
