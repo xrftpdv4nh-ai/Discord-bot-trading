@@ -13,8 +13,9 @@ DOWN_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/146797852
 PRO_ROLE_ID = 1467922966485668118
 VIP_ROLE_ID = 1467923207389712556
 
-# ===== STORAGE (مؤقت – لحد ما نركب Wallet) =====
+# ===== TEMP STORAGE (لحد ما نعمل Wallet) =====
 user_data = {}
+
 
 def get_user_level(member: discord.Member):
     roles = [r.id for r in member.roles]
@@ -24,36 +25,48 @@ def get_user_level(member: discord.Member):
             "name": "VIP",
             "min": 3000,
             "max": 70000,
-            "win_rate": 0.60,
-            "profit_rate": 0.90,
+            "win_rate": 0.56,
+            "profit_rate": 0.88,
             "daily_limit": 35
         }
+
     elif PRO_ROLE_ID in roles:
         return {
             "name": "PRO",
             "min": 3000,
             "max": 40000,
-            "win_rate": 0.56,
-            "profit_rate": 0.85,
+            "win_rate": 0.54,
+            "profit_rate": 0.80,
             "daily_limit": 20
         }
+
     else:
         return {
             "name": "USER",
             "min": 3000,
             "max": 12000,
-            "win_rate": 0.53,
-            "profit_rate": 0.80,
+            "win_rate": 0.52,
+            "profit_rate": 0.78,
             "daily_limit": 12
         }
 
 
 class TradeView(View):
-    def __init__(self, amount: int, interaction: discord.Interaction, level: dict):
+    def __init__(self, amount: int, user_id: int, level: dict):
         super().__init__(timeout=60)
         self.amount = amount
-        self.user_id = interaction.user.id
+        self.user_id = user_id
         self.level = level
+        self.finished = False  # 🔒 تشفير الصفقة
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message(
+                "⛔ **هذه الصفقة ليست لك**",
+                ephemeral=True
+            )
+            return False
+        return True
 
     @discord.ui.button(label="📈 صعود", style=discord.ButtonStyle.success)
     async def up(self, interaction: discord.Interaction, button: Button):
@@ -64,14 +77,19 @@ class TradeView(View):
         await self.handle(interaction, "down")
 
     async def handle(self, interaction: discord.Interaction, choice: str):
-        uid = self.user_id
-        today = str(date.today())
+        if self.finished:
+            await interaction.response.send_message(
+                "⛔ **الصفقة انتهت بالفعل**",
+                ephemeral=True
+            )
+            return
 
-        data = user_data[uid]
+        self.finished = True
 
-        # 🔒 منع 3 مكاسب ورا بعض
+        data = user_data[self.user_id]
+
+        # ❌ منع 3 مكاسب متتالية
         forced_lose = data["win_streak"] >= 2
-
         win_rate = self.level["win_rate"]
 
         # 📉 تقليل الحظ مع المكسب العالي
@@ -84,7 +102,6 @@ class TradeView(View):
         if not forced_lose and random.random() < win_rate:
             win = True
 
-        # ===== النتيجة =====
         if win:
             data["win_streak"] += 1
             profit = int(self.amount * self.level["profit_rate"])
@@ -93,7 +110,6 @@ class TradeView(View):
             img = UP_IMG
         else:
             data["win_streak"] = 0
-            profit = -self.amount
             result_text = f"💥 **خسرت:** `{self.amount}`"
             img = DOWN_IMG
 
@@ -102,9 +118,8 @@ class TradeView(View):
         embed = discord.Embed(
             title="📊 **نتيجة الصفقة**",
             description=(
-                f"🏷️ **المستوى:** `{self.level['name']}`\n"
+                f"🏷️ **مستواك:** `{self.level['name']}`\n"
                 f"💰 **قيمة الصفقة:** `{self.amount}`\n"
-                f"🧭 **اختيارك:** `{'صعود 📈' if choice == 'up' else 'هبوط 📉'}`\n\n"
                 f"{result_text}"
             ),
             color=0x2ecc71 if win else 0xe74c3c
@@ -122,7 +137,6 @@ class TradeView(View):
 async def trade(interaction: discord.Interaction, amount: int):
     member = interaction.user
     level = get_user_level(member)
-
     uid = member.id
     today = str(date.today())
 
@@ -136,25 +150,24 @@ async def trade(interaction: discord.Interaction, amount: int):
 
     data = user_data[uid]
 
-    # ❌ ليمت الصفقات
+    # ⛔ حد أقصى للصفقات اليومية
     if data["trades_today"] >= level["daily_limit"]:
         await interaction.response.send_message(
-            f"⛔ **وصلت للحد الأقصى للصفقات اليومية ({level['daily_limit']})**",
+            f"⛔ **تم إيقاف التداول اليومي**\n"
+            f"🏷️ **مستواك:** `{level['name']}`\n"
+            f"📊 **الحد الأقصى للصفقات:** `{level['daily_limit']}`\n"
+            f"⏳ **حاول مرة أخرى غدًا**",
             ephemeral=True
         )
         return
 
-    # ❌ حد أدنى / أقصى
-    if amount < level["min"]:
+    # ⛔ حد أدنى / أقصى
+    if amount < level["min"] or amount > level["max"]:
         await interaction.response.send_message(
-            f"❌ **الحد الأدنى للتداول هو {level['min']}**",
-            ephemeral=True
-        )
-        return
-
-    if amount > level["max"]:
-        await interaction.response.send_message(
-            f"❌ **الحد الأقصى لمستواك هو {level['max']}**",
+            f"⛔ **مبلغ غير مسموح**\n"
+            f"🏷️ **مستواك:** `{level['name']}`\n"
+            f"🔻 **الحد الأدنى:** `{level['min']}`\n"
+            f"🔺 **الحد الأقصى:** `{level['max']}`",
             ephemeral=True
         )
         return
@@ -162,7 +175,7 @@ async def trade(interaction: discord.Interaction, amount: int):
     embed = discord.Embed(
         title="🚀 **بدء صفقة تداول**",
         description=(
-            f"🏷️ **المستوى:** `{level['name']}`\n"
+            f"🏷️ **مستواك:** `{level['name']}`\n"
             f"💰 **مبلغ الصفقة:** `{amount}`\n\n"
             "📊 **اختر اتجاه السوق:**"
         ),
@@ -172,5 +185,5 @@ async def trade(interaction: discord.Interaction, amount: int):
 
     await interaction.response.send_message(
         embed=embed,
-        view=TradeView(amount, interaction, level)
+        view=TradeView(amount, uid, level)
     )
