@@ -45,35 +45,27 @@ class TradeView(View):
     async def down(self, interaction: discord.Interaction, button: Button):
         await self.handle_trade(interaction, "DOWN")
 
-    async def handle_trade(self, interaction: discord.Interaction, user_choice: str):
+    async def handle_trade(self, interaction: discord.Interaction, choice: str):
         # ===== عشوائية حقيقية =====
         seed = secrets.randbelow(1_000_000) + int(time.time() * 1000)
         random.seed(seed)
 
         roll = random.randint(1, 100)
-        market_result = "UP" if roll <= int(BASE_WIN_RATE * 100) else "DOWN"
-        win = user_choice == market_result
+        market = "UP" if roll <= int(BASE_WIN_RATE * 100) else "DOWN"
+        win = choice == market
 
-        # ===== صورة السوق =====
-        if market_result == "UP":
+        if market == "UP":
             image = discord.File("assets/up.png")
             market_text = "**📈 السهم صعد**"
         else:
             image = discord.File("assets/down.png")
             market_text = "**📉 السهم هبط**"
 
-        # ===== نتيجة الصفقة =====
         if win:
             profit = int(self.amount * 0.8)
-            result_text = (
-                "**✅ اختيارك صحيح**\n"
-                f"**💰 ربحت {profit:,} نقطة**"
-            )
+            result_text = f"**✅ اختيارك صحيح**\n**💰 ربحت {profit:,} نقطة**"
         else:
-            result_text = (
-                "**❌ اختيارك غلط**\n"
-                f"**💸 خسرت {self.amount:,} نقطة**"
-            )
+            result_text = f"**❌ اختيارك غلط**\n**💸 خسرت {self.amount:,} نقطة**"
 
         await interaction.response.edit_message(
             content=f"{market_text}\n\n{result_text}",
@@ -84,10 +76,12 @@ class TradeView(View):
 
 class TradeCommand:
     def __init__(self):
-        # تخزين الصفقات اليومية تلقائي (RAM)
         self.daily_trades = {}
 
-    def get_user_tier(self, member: discord.Member) -> str:
+    def get_user_tier(self, member: discord.Member | None) -> str:
+        if not member:
+            return "user"
+
         role_ids = [role.id for role in member.roles]
 
         if VIP_ROLE_ID in role_ids:
@@ -96,12 +90,21 @@ class TradeCommand:
             return "pro"
         return "user"
 
+    @app_commands.guild_only()
     @app_commands.command(name="trade", description="ابدأ تداول")
     async def trade(self, interaction: discord.Interaction, amount: int):
+        # ===== منع Timeout =====
+        await interaction.response.defer(ephemeral=True)
+
         user_id = interaction.user.id
         today = str(date.today())
 
-        member = interaction.guild.get_member(user_id)
+        # ===== جلب العضو مباشرة =====
+        try:
+            member = await interaction.guild.fetch_member(user_id)
+        except:
+            member = None
+
         tier = self.get_user_tier(member)
         settings = TIERS[tier]
 
@@ -109,15 +112,15 @@ class TradeCommand:
         max_bet = settings["max_bet"]
         daily_limit = settings["daily_limit"]
 
-        # ===== التحقق من المبلغ =====
+        # ===== تحقق المبلغ =====
         if amount < min_bet or amount > max_bet:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"**❌ المبلغ المسموح لمستوى {tier.upper()} من {min_bet:,} إلى {max_bet:,} نقطة**",
                 ephemeral=True
             )
             return
 
-        # ===== إدارة الصفقات اليومية (تلقائي) =====
+        # ===== إدارة الصفقات اليومية =====
         user_data = self.daily_trades.get(
             user_id, {"date": today, "count": 0}
         )
@@ -126,7 +129,7 @@ class TradeCommand:
             user_data = {"date": today, "count": 0}
 
         if user_data["count"] >= daily_limit:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"**⛔ وصلت للحد اليومي للتداول**\n\n"
                 f"**🔰 المستوى: {tier.upper()}**\n"
                 f"**🔢 الصفقات: {daily_limit} / {daily_limit}**\n"
@@ -142,7 +145,7 @@ class TradeCommand:
         file = discord.File("assets/start.png")
         view = TradeView(amount)
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             content=(
                 f"**🔰 المستوى: {tier.upper()}**\n"
                 f"**📊 مبلغ الصفقة: {amount:,} نقطة**\n"
@@ -150,5 +153,6 @@ class TradeCommand:
                 f"**اختر اتجاه التداول 👇**"
             ),
             file=file,
-            view=view
+            view=view,
+            ephemeral=True
         )
