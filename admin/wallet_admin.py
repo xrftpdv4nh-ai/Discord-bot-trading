@@ -1,11 +1,10 @@
-from discord.ext import commands
 import json
 import os
 from datetime import datetime
 
 # ================== ADMIN IDS ==================
 ADMIN_IDS = [
-    802148738939748373,  # ايديك
+    802148738939748373,
     1035345058561540127
 ]
 
@@ -42,75 +41,79 @@ def get_wallet(user_id: int):
     return wallets, wallets[uid]
 
 
-class WalletAdmin(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+async def handle_admin_message(message):
+    if message.author.bot:
+        return
 
-    def is_admin(self, ctx):
-        return ctx.author.id in ADMIN_IDS
+    if message.author.id not in ADMIN_IDS:
+        return
 
-    # ================== !add ==================
-    @commands.command(name="add")
-    async def add_balance(self, ctx, member: commands.MemberConverter, amount: int):
-        if not self.is_admin(ctx):
-            return
+    content = message.content.strip().split()
+    if not content:
+        return
 
-        if amount <= 0:
-            await ctx.send("❌ **مبلغ غير صالح**", delete_after=5)
-            return
+    command = content[0].lower()
 
-        wallets, wallet = get_wallet(member.id)
+    # ================== جاهز ==================
+    if command == "جاهز":
+        await message.channel.send("جاهز")
+        return
 
-        wallet["balance"] += amount
-        wallet["total_deposit"] += amount
-        wallet["last_update"] = str(datetime.now())
-
-        save_wallets(wallets)
-
-        await ctx.send(
-            f"✅ **تم إضافة رصيد**\n"
-            f"👤 {member.mention}\n"
-            f"💰 المبلغ: `{amount}`\n"
-            f"💼 الرصيد الحالي: `{wallet['balance']}`",
-            delete_after=7
-        )
-
-    # ================== !remove ==================
-    @commands.command(name="remove")
-    async def remove_balance(self, ctx, member: commands.MemberConverter, amount: int):
-        if not self.is_admin(ctx):
-            return
-
-        wallets, wallet = get_wallet(member.id)
-
-        if amount <= 0 or wallet["balance"] < amount:
-            await ctx.send("❌ **رصيد غير كافي أو مبلغ غير صحيح**", delete_after=5)
-            return
-
-        wallet["balance"] -= amount
-        wallet["total_loss"] += amount
-        wallet["last_update"] = str(datetime.now())
-
-        save_wallets(wallets)
-
-        await ctx.send(
-            f"➖ **تم خصم رصيد**\n"
-            f"👤 {member.mention}\n"
-            f"💰 المبلغ: `{amount}`\n"
-            f"💼 الرصيد الحالي: `{wallet['balance']}`",
-            delete_after=7
-        )
-
-    # ================== !ahelp ==================
-    @commands.command(name="ahelp")
-    async def ahelp(self, ctx):
-        if not self.is_admin(ctx):
-            return
-
-        await ctx.send(
+    # ================== ahelp ==================
+    if command == "ahelp":
+        await message.channel.send(
             "🛠 **أوامر الإدارة**\n\n"
-            "➕ `!add @user amount` ➜ إضافة رصيد\n"
-            "➖ `!remove @user amount` ➜ خصم رصيد\n\n"
-            "📌 هذه الأوامر خاصة بالإدارة فقط",
+            "`add @user amount` ➜ إضافة رصيد\n"
+            "`remove @user amount` ➜ خصم رصيد\n"
+            "`ahelp` ➜ عرض الأوامر\n"
+            "`جاهز` ➜ اختبار البوت",
             delete_after=10
+        )
+        return
+
+    # ================== add / remove ==================
+    if command in ("add", "remove"):
+        if len(content) < 3 or not message.mentions:
+            await message.channel.send(
+                "❌ **الصيغة الصحيحة:** add @user amount",
+                delete_after=5
+            )
+            return
+
+        member = message.mentions[0]
+
+        try:
+            amount = int(content[2])
+        except ValueError:
+            await message.channel.send(
+                "❌ **المبلغ لازم يكون رقم**",
+                delete_after=5
+            )
+            return
+
+        wallets, wallet = get_wallet(member.id)
+
+        if command == "add":
+            wallet["balance"] += amount
+            wallet["total_deposit"] += amount
+            action = "➕ **تم إضافة**"
+        else:
+            if wallet["balance"] < amount:
+                await message.channel.send(
+                    "❌ **رصيد غير كافي**",
+                    delete_after=5
+                )
+                return
+            wallet["balance"] -= amount
+            wallet["total_loss"] += amount
+            action = "➖ **تم خصم**"
+
+        wallet["last_update"] = str(datetime.now())
+        save_wallets(wallets)
+
+        await message.channel.send(
+            f"{action} `{amount}`\n"
+            f"👤 {member.mention}\n"
+            f"💼 الرصيد الحالي: `{wallet['balance']}`",
+            delete_after=7
         )
