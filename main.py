@@ -24,11 +24,11 @@ async def on_ready():
     bot.tree.add_command(trade)
     bot.tree.add_command(clear)
     bot.tree.add_command(wallet)
-    await bot.add_cog(AdminWallet(bot))
-    
+
+    # ✅ هنا التصحيح
+    bot.add_cog(AdminWallet(bot))
+
     await bot.tree.sync()
-
     print("✅ Commands Synced")
-
 
 bot.run(BOT_TOKEN)
