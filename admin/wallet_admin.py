@@ -2,13 +2,11 @@ import json
 import os
 from datetime import datetime
 
-# ================== ADMIN IDS ==================
 ADMIN_IDS = [
     802148738939748373,
     1035345058561540127
 ]
 
-# ================== WALLET FILE ==================
 WALLET_FILE = "data/wallets.json"
 
 
@@ -41,7 +39,7 @@ def get_wallet(user_id: int):
     return wallets, wallets[uid]
 
 
-async def handle_admin_message(message):
+def handle_admin_message(bot, message):
     if message.author.bot:
         return
 
@@ -54,29 +52,33 @@ async def handle_admin_message(message):
 
     command = content[0].lower()
 
-    # ================== جاهز ==================
+    # ===== جاهز =====
     if command == "جاهز":
-        await message.channel.send("جاهز")
+        bot.loop.create_task(message.channel.send("جاهز"))
         return
 
-    # ================== ahelp ==================
+    # ===== ahelp =====
     if command == "ahelp":
-        await message.channel.send(
-            "🛠 **أوامر الإدارة**\n\n"
-            "`add @user amount` ➜ إضافة رصيد\n"
-            "`remove @user amount` ➜ خصم رصيد\n"
-            "`ahelp` ➜ عرض الأوامر\n"
-            "`جاهز` ➜ اختبار البوت",
-            delete_after=10
+        bot.loop.create_task(
+            message.channel.send(
+                "🛠 **أوامر الإدارة**\n\n"
+                "`add @user amount` ➜ إضافة رصيد\n"
+                "`remove @user amount` ➜ خصم رصيد\n"
+                "`ahelp` ➜ عرض الأوامر\n"
+                "`جاهز` ➜ اختبار",
+                delete_after=10
+            )
         )
         return
 
-    # ================== add / remove ==================
+    # ===== add / remove =====
     if command in ("add", "remove"):
         if len(content) < 3 or not message.mentions:
-            await message.channel.send(
-                "❌ **الصيغة الصحيحة:** add @user amount",
-                delete_after=5
+            bot.loop.create_task(
+                message.channel.send(
+                    "❌ الصيغة الصحيحة: add @user amount",
+                    delete_after=5
+                )
             )
             return
 
@@ -85,9 +87,8 @@ async def handle_admin_message(message):
         try:
             amount = int(content[2])
         except ValueError:
-            await message.channel.send(
-                "❌ **المبلغ لازم يكون رقم**",
-                delete_after=5
+            bot.loop.create_task(
+                message.channel.send("❌ المبلغ لازم يكون رقم", delete_after=5)
             )
             return
 
@@ -96,24 +97,25 @@ async def handle_admin_message(message):
         if command == "add":
             wallet["balance"] += amount
             wallet["total_deposit"] += amount
-            action = "➕ **تم إضافة**"
+            action = "➕ تم إضافة"
         else:
             if wallet["balance"] < amount:
-                await message.channel.send(
-                    "❌ **رصيد غير كافي**",
-                    delete_after=5
+                bot.loop.create_task(
+                    message.channel.send("❌ رصيد غير كافي", delete_after=5)
                 )
                 return
             wallet["balance"] -= amount
             wallet["total_loss"] += amount
-            action = "➖ **تم خصم**"
+            action = "➖ تم خصم"
 
         wallet["last_update"] = str(datetime.now())
         save_wallets(wallets)
 
-        await message.channel.send(
-            f"{action} `{amount}`\n"
-            f"👤 {member.mention}\n"
-            f"💼 الرصيد الحالي: `{wallet['balance']}`",
-            delete_after=7
+        bot.loop.create_task(
+            message.channel.send(
+                f"{action} `{amount}`\n"
+                f"👤 {member.mention}\n"
+                f"💼 الرصيد الحالي: `{wallet['balance']}`",
+                delete_after=7
+            )
         )
