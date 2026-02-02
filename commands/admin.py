@@ -1,6 +1,11 @@
 import discord
 from discord import app_commands
-from config import ADMIN_IDS
+
+# ===== ADMIN IDS =====
+ADMIN_IDS = [
+    802148738939748373,
+    1035345058561540127
+]
 
 
 def is_admin(user_id: int) -> bool:
