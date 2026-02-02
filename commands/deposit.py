@@ -3,7 +3,6 @@ from discord import app_commands
 from discord.ui import View, Button, Select
 import json
 import os
-import time
 import uuid
 
 # ================== CONFIG ==================
@@ -14,8 +13,6 @@ PROBOT_OWNER_ID = 802148738939748373
 ADMIN_ROLE_ID = 1292973462091989155
 ADMIN_ACTION_CHANNEL_ID = 1293008901142351952
 LOG_CHANNEL_ID = 1293146723417587763
-
-USER_TIMEOUT_SECONDS = 600  # 10 دقائق
 
 DATA_FILE = "data/deposits.json"
 
@@ -33,17 +30,20 @@ def save_data(data):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-# ================== VIEW USER ==================
+# ================== USER VIEW ==================
 class DepositView(View):
     def __init__(self, user, amount):
-        super().__init__(timeout=USER_TIMEOUT_SECONDS)
+        super().__init__(timeout=600)  # 10 دقائق
         self.user = user
         self.amount = amount
         self.deposit_id = str(uuid.uuid4())[:8]
 
     async def interaction_check(self, interaction):
         if interaction.user.id != self.user.id:
-            await interaction.response.send_message("⛔ الطلب مش ليك", ephemeral=True)
+            await interaction.response.send_message(
+                "⛔ الطلب مش ليك",
+                ephemeral=True
+            )
             return False
         return True
 
@@ -78,6 +78,7 @@ class DepositView(View):
         }
         save_data(data)
 
+        # تعديل رسالة Only You
         embed = discord.Embed(
             title="📎 إرسال إثبات التحويل",
             description=(
@@ -85,12 +86,26 @@ class DepositView(View):
                 f"💰 **المبلغ:** `{self.amount}`\n"
                 f"💳 **الطريقة:** `{method}`\n\n"
                 f"{instructions}\n\n"
-                "📎 **ابعت صورة إثبات التحويل (ريبلاي على الرسالة دي)**"
+                "📎 **هيتم إرسال رسالة عادية دلوقتي علشان تعمل Reply بالصورة**"
             ),
             color=0xe67e22
         )
 
         await interaction.response.edit_message(embed=embed, view=None)
+
+        # رسالة عادية للـ Reply
+        await interaction.followup.send(
+            embed=discord.Embed(
+                title="📎 إثبات التحويل",
+                description=(
+                    f"🆔 **ID:** `{self.deposit_id}`\n\n"
+                    "📎 **ابعت صورة إثبات التحويل**\n"
+                    "**Reply على الرسالة دي فقط**"
+                ),
+                color=0xf39c12
+            ),
+            ephemeral=False
+        )
 
 
 # ================== ADMIN VIEW ==================
@@ -102,7 +117,10 @@ class AdminView(View):
     async def interaction_check(self, interaction):
         role = interaction.guild.get_role(ADMIN_ROLE_ID)
         if role not in interaction.user.roles:
-            await interaction.response.send_message("⛔ مفيش صلاحية", ephemeral=True)
+            await interaction.response.send_message(
+                "⛔ مفيش صلاحية",
+                ephemeral=True
+            )
             return False
         return True
 
@@ -125,14 +143,19 @@ async def handle_proof_message(message):
     data = load_data()
 
     for deposit_id, entry in data.items():
-        if entry["user_id"] == message.author.id and entry["status"] == "waiting_proof":
+        if (
+            entry["user_id"] == message.author.id
+            and entry["status"] == "waiting_proof"
+        ):
             entry["proof"] = message.attachments[0].url
             entry["status"] = "pending"
             save_data(data)
 
-            # تعديل رسالة البوت
+            # تعديل رسالة البوت الأصلية
             try:
-                bot_msg = await message.channel.fetch_message(message.reference.message_id)
+                bot_msg = await message.channel.fetch_message(
+                    message.reference.message_id
+                )
                 embed = bot_msg.embeds[0]
                 embed.description = (
                     f"🆔 **ID:** `{deposit_id}`\n"
@@ -147,6 +170,7 @@ async def handle_proof_message(message):
 
             await message.delete()
 
+            # إرسال للأدمن
             admin_channel = message.client.get_channel(ADMIN_ACTION_CHANNEL_ID)
             if admin_channel:
                 emb = discord.Embed(
@@ -160,7 +184,11 @@ async def handle_proof_message(message):
                     color=0x3498db
                 )
                 emb.set_image(url=entry["proof"])
-                await admin_channel.send(embed=emb, view=AdminView(deposit_id))
+
+                await admin_channel.send(
+                    embed=emb,
+                    view=AdminView(deposit_id)
+                )
             break
 
 
@@ -168,7 +196,10 @@ async def handle_proof_message(message):
 async def handle_decision(interaction, deposit_id, approve):
     data = load_data()
     if deposit_id not in data:
-        await interaction.response.send_message("❌ الطلب غير موجود", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ الطلب غير موجود",
+            ephemeral=True
+        )
         return
 
     entry = data[deposit_id]
@@ -210,12 +241,18 @@ async def handle_decision(interaction, deposit_id, approve):
 @app_commands.describe(amount="مبلغ الإيداع")
 async def deposit(interaction, amount: int):
     if amount <= 0:
-        await interaction.response.send_message("❌ مبلغ غير صالح", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ مبلغ غير صالح",
+            ephemeral=True
+        )
         return
 
     embed = discord.Embed(
         title="💰 إنشاء طلب إيداع",
-        description=f"💰 **المبلغ:** `{amount}`\n\nاختر طريقة الإيداع:",
+        description=(
+            f"💰 **المبلغ:** `{amount}`\n\n"
+            "اختر طريقة الإيداع:"
+        ),
         color=0x2ecc71
     )
 
