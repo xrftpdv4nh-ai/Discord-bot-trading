@@ -12,16 +12,27 @@ class TradeView(View):
     def __init__(self, amount: int):
         super().__init__(timeout=60)
         self.amount = amount
+        self.finished = False  # 👈 تشفير الصفقة
 
     @discord.ui.button(label="📈 صعود", style=discord.ButtonStyle.success)
     async def up(self, interaction: discord.Interaction, button: Button):
-        await self.result(interaction, "up")
+        await self.handle(interaction, "up")
 
     @discord.ui.button(label="📉 هبوط", style=discord.ButtonStyle.danger)
     async def down(self, interaction: discord.Interaction, button: Button):
-        await self.result(interaction, "down")
+        await self.handle(interaction, "down")
 
-    async def result(self, interaction: discord.Interaction, choice: str):
+    async def handle(self, interaction: discord.Interaction, choice: str):
+        # 🔒 لو الصفقة خلصت
+        if self.finished:
+            await interaction.response.send_message(
+                "❌ الصفقة انتهت بالفعل",
+                ephemeral=True
+            )
+            return
+
+        self.finished = True  # 👈 قفل الصفقة
+
         result = random.choice(["up", "down"])
         win = choice == result
 
@@ -38,7 +49,7 @@ class TradeView(View):
 
         embed.set_image(url=UP_IMG if result == "up" else DOWN_IMG)
 
-        # 👇 الرد الوحيد والمضمون
+        # 👇 الرد الوحيد
         await interaction.response.send_message(
             embed=embed,
             ephemeral=True
