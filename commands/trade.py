@@ -1,67 +1,65 @@
+import random
 import discord
 from discord import app_commands
 from discord.ui import View, Button
-import random
 
-from config import BASE_WIN_RATE
+START_IMAGE = "https://i.imgur.com/8Km9tLL.png"   # صورة Start
+UP_IMAGE = "https://i.imgur.com/1X6RZQp.png"      # صورة صعود
+DOWN_IMAGE = "https://i.imgur.com/FKZQZ9y.png"    # صورة هبوط
 
 
 class TradeView(View):
     def __init__(self, amount: int):
-        super().__init__(timeout=60)
+        super().__init__(timeout=30)
         self.amount = amount
 
-    @discord.ui.button(label="📈 صعود", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="صعود 📈", style=discord.ButtonStyle.success)
     async def up(self, interaction: discord.Interaction, button: Button):
-        await self.resolve(interaction, "UP")
+        await self.handle_trade(interaction, "up")
 
-    @discord.ui.button(label="📉 هبوط", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="هبوط 📉", style=discord.ButtonStyle.danger)
     async def down(self, interaction: discord.Interaction, button: Button):
-        await self.resolve(interaction, "DOWN")
+        await self.handle_trade(interaction, "down")
 
-    async def resolve(self, interaction: discord.Interaction, choice: str):
-        market = "UP" if random.random() <= BASE_WIN_RATE else "DOWN"
-        win = (choice == market)
+    async def handle_trade(self, interaction: discord.Interaction, choice: str):
+        result = random.choice(["up", "down"])
 
-        if market == "UP":
-            image = discord.File("assets/up.png")
-            text = "**📈 السهم صعد**"
-        else:
-            image = discord.File("assets/down.png")
-            text = "**📉 السهم هبط**"
+        win = choice == result
 
-        if win:
-            result = f"**✅ كسبت {int(self.amount * 0.8):,} نقطة**"
-        else:
-            result = f"**❌ خسرت {self.amount:,} نقطة**"
-
-        await interaction.response.edit_message(
-            content=f"{text}\n\n{result}",
-            attachments=[image],
-            view=None
+        emb = discord.Embed(
+            title="**نتيجة التداول**",
+            description=(
+                f"**المبلغ:** {self.amount}\n"
+                f"**اختيارك:** {'صعود' if choice == 'up' else 'هبوط'}\n\n"
+                f"{'✅ كسبت الصفقة' if win else '❌ خسرت الصفقة'}"
+            ),
+            color=0x2ecc71 if win else 0xe74c3c
         )
 
+        emb.set_image(url=UP_IMAGE if result == "up" else DOWN_IMAGE)
 
-class TradeCommand:
-    @app_commands.guild_only()
-    @app_commands.command(name="trade", description="ابدأ تداول")
-    async def trade(self, interaction: discord.Interaction, amount: int):
-        if amount <= 0 or amount > 12000:
-            await interaction.response.send_message(
-                "**❌ الحد الأقصى للتداول هو 12,000 نقطة**",
-                ephemeral=True
-            )
-            return
+        self.disable_all_items()
+        await interaction.response.edit_message(embed=emb, view=self)
 
-        file = discord.File("assets/start.png")
-        view = TradeView(amount)
 
+@app_commands.command(name="trade", description="بدء صفقة تداول")
+@app_commands.describe(amount="مبلغ التداول")
+async def trade(interaction: discord.Interaction, amount: int):
+    if amount <= 0:
         await interaction.response.send_message(
-            content=(
-                f"**📊 مبلغ الصفقة: {amount:,} نقطة**\n"
-                f"**اختر اتجاه التداول 👇**"
-            ),
-            file=file,
-            view=view,
+            "❌ المبلغ لازم يكون أكبر من 0",
             ephemeral=True
         )
+        return
+
+    emb = discord.Embed(
+        title="**ابدأ التداول**",
+        description=f"**مبلغ الصفقة:** {amount}\n\nاختر اتجاه التداول 👇",
+        color=0x3498db
+    )
+    emb.set_image(url=START_IMAGE)
+
+    await interaction.response.send_message(
+        embed=emb,
+        view=TradeView(amount)
+    )
