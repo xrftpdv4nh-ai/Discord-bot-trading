@@ -6,19 +6,15 @@ from datetime import datetime
 
 DATA_FILE = "data/wallets.json"
 
-
-# ================== STORAGE ==================
 def load_wallets():
     if not os.path.exists(DATA_FILE):
         return {}
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
-
 def save_wallets(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
-
 
 def get_wallet(user_id: int):
     wallets = load_wallets()
@@ -36,12 +32,7 @@ def get_wallet(user_id: int):
 
     return wallets, wallets[uid]
 
-
-# ================== COMMAND ==================
-@app_commands.command(
-    name="wallet",
-    description="عرض محفظتك"
-)
+@app_commands.command(name="wallet", description="عرض محفظتك")
 async def wallet(interaction: discord.Interaction):
     wallets, data = get_wallet(interaction.user.id)
 
@@ -57,26 +48,13 @@ async def wallet(interaction: discord.Interaction):
     )
 
     embed.add_field(
-        name="📥 **إجمالي الإيداعات**",
-        value=f"`{data['total_deposit']}`",
-        inline=True
-    )
-
-    embed.add_field(
         name="📈 **إجمالي الأرباح**",
         value=f"`{data['total_profit']}`",
-        inline=True
-    )
-
-    embed.add_field(
-        name="📉 **إجمالي الخسائر**",
-        value=f"`{data['total_loss']}`",
-        inline=True
+        inline=False
     )
 
     embed.set_footer(text="🔐 هذه البيانات خاصة بك فقط")
 
-    # 👇 Only you can see
     await interaction.response.send_message(
         embed=embed,
         ephemeral=True
