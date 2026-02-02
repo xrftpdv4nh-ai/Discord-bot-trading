@@ -34,16 +34,16 @@ class TradeView(View):
         # ===== اختيار الصورة حسب نتيجة السوق =====
         if market_result == "UP":
             image = discord.File("assets/up.png")
-            market_text = "📈 السهم صعد"
+            market_text = "**📈 السهم صعد**"
         else:
             image = discord.File("assets/down.png")
-            market_text = "📉 السهم هبط"
+            market_text = "**📉 السهم هبط**"
 
         # ===== نص النتيجة =====
         if win:
-            result_text = f"✅ اختيارك صحيح\n💰 كسبت {int(self.amount * 0.8):,} نقطة"
+            result_text = f"**✅ اختيارك صحيح\n💰 كسبت {int(self.amount * 0.8):,} نقطة**"
         else:
-            result_text = f"❌ اختيارك غلط\n💸 خسرت {self.amount:,} نقطة"
+            result_text = f"**❌ اختيارك غلط\n💸 خسرت {self.amount:,} نقطة**"
 
         await interaction.response.edit_message(
             content=f"{market_text}\n\n{result_text}",
@@ -56,11 +56,11 @@ class UserCommands(app_commands.Group):
     def __init__(self):
         super().__init__(name="user", description="User trading commands")
 
-    @app_commands.command(name="trade", description="ابدأ تداول")
+    @app_commands.command(name="trade", description="**ابدأ تداول**")
     async def trade(self, interaction: discord.Interaction, amount: int):
         if amount < MIN_BET or amount > MAX_BET:
             await interaction.response.send_message(
-                f"❌ المبلغ لازم يكون بين {MIN_BET:,} و {MAX_BET:,}",
+                f"**❌ المبلغ لازم يكون بين {MIN_BET:,} و {MAX_BET:,}**",
                 ephemeral=True
             )
             return
@@ -69,7 +69,7 @@ class UserCommands(app_commands.Group):
         view = TradeView(amount)
 
         await interaction.response.send_message(
-            content=f"📊 مبلغ الصفقة: {amount:,} نقطة\nاختر اتجاه التداول 👇",
+            content=f"**📊 مبلغ الصفقة: {amount:,} نقطة\nاختر اتجاه التداول 👇**",
             file=file,
             view=view
         )
