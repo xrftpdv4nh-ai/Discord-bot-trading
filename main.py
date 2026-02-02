@@ -6,6 +6,7 @@ from commands.ping import ping
 from commands.embed import embed
 from commands.trade import trade
 from commands.clear import clear
+from commands.wallet import wallet
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -21,6 +22,8 @@ async def on_ready():
     bot.tree.add_command(embed)
     bot.tree.add_command(trade)
     bot.tree.add_command(clear)
+    bot.tree.add_command(wallet)
+    
     await bot.tree.sync()
 
     print("✅ Commands Synced")
