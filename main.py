@@ -7,7 +7,7 @@ from commands.embed import embed
 from commands.trade import trade
 from commands.clear import clear
 from commands.wallet import wallet
-from commands.admin_wallet_prefix import AdminWallet
+from admin.wallet_admin import WalletAdmin
 
 intents = discord.Intents.default()
 intents.message_content = True  # مهم لأوامر !
@@ -24,7 +24,7 @@ async def on_ready():
     bot.tree.add_command(trade)
     bot.tree.add_command(clear)
     bot.tree.add_command(wallet)
-
+    bot.add_cog(WalletAdmin(bot))
     # ✅ هنا التصحيح
     bot.add_cog(AdminWallet(bot))
 
