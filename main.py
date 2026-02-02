@@ -4,52 +4,38 @@ from discord import app_commands
 
 from config import BOT_TOKEN
 from commands.trade import TradeCommand
-from commands.admin import AdminCommands
 
 # ===== INTENTS =====
 intents = discord.Intents.default()
-intents.members = True  # مهم جدًا عشان Roles (Pro / VIP)
+intents.guilds = True
+intents.members = True  # حتى لو مش مستخدمين roles دلوقتي
 
-# ===== BOT =====
 bot = commands.Bot(
     command_prefix="!",
     intents=intents
 )
 
-# ===== EVENTS =====
 @bot.event
 async def on_ready():
     try:
-        # إنشاء كائن أوامر التداول
-        trade_cmd = TradeCommand()
+        print("🟢 Bot connected")
 
-        # مسح أي أوامر قديمة (user trade)
+        # امسح أي أوامر قديمة
         bot.tree.clear_commands(guild=None)
 
-        # إضافة أوامر التداول
+        # أضف أمر trade فقط
+        trade_cmd = TradeCommand()
         bot.tree.add_command(trade_cmd.trade)
 
-        # إضافة أوامر الأدمن
-        bot.tree.add_command(AdminCommands())
-
-        # مزامنة الأوامر
         synced = await bot.tree.sync()
-
-        print("=================================")
-        print(f"✅ Bot is online as {bot.user}")
         print(f"✅ Synced {len(synced)} command(s)")
-        print("=================================")
 
     except Exception as e:
-        print(f"❌ Sync error: {e}")
+        print("❌ on_ready error:", e)
 
-# ===== TEST COMMAND =====
-@bot.tree.command(name="ping", description="Test bot")
-async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message("🏓 Pong 😂")
+# أمر اختبار بسيط جدًا
+@bot.tree.command(name="test", description="simple test")
+async def test(interaction: discord.Interaction):
+    await interaction.response.send_message("✅ test works", ephemeral=True)
 
-# ===== RUN =====
-if not BOT_TOKEN:
-    print("❌ BOT_TOKEN not found. Check Railway Variables.")
-else:
-    bot.run(BOT_TOKEN)
+bot.run(BOT_TOKEN)
