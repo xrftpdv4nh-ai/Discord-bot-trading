@@ -2,45 +2,43 @@ import random
 import discord
 from discord import app_commands
 from discord.ui import View, Button
-from pathlib import Path
 
-# ===== ASSETS =====
-ASSETS = Path("assets")
-START_IMG = ASSETS / "start.png"
-UP_IMG = ASSETS / "up.png"
-DOWN_IMG = ASSETS / "down.png"
+# ===== IMAGE URLS =====
+START_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978521375674621/371204A2-EAC5-487E-80E1-E409A2CDB31A.png"
+UP_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978522042695700/56325194-FA0D-412A-91F0-9632A7FE6AE7.png"
+DOWN_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978521715675238/56325194-FA0D-412A-91F0-9632A7FE6AE7.png"
 
 
 class TradeView(View):
     def __init__(self, amount: int):
         super().__init__(timeout=30)
         self.amount = amount
-        self.finished = False  # علشان ما يتلعبش مرتين
+        self.finished = False
 
     @discord.ui.button(label="📈 صعود", style=discord.ButtonStyle.success)
     async def up(self, interaction: discord.Interaction, button: Button):
-        await self.finish_trade(interaction, "up")
+        await self.finish(interaction, "up")
 
     @discord.ui.button(label="📉 هبوط", style=discord.ButtonStyle.danger)
     async def down(self, interaction: discord.Interaction, button: Button):
-        await self.finish_trade(interaction, "down")
+        await self.finish(interaction, "down")
 
-    async def finish_trade(self, interaction: discord.Interaction, choice: str):
+    async def finish(self, interaction: discord.Interaction, choice: str):
         # حماية من الضغط أكتر من مرة
         if self.finished:
             await interaction.response.send_message(
-                "❌ الصفقة دي خلصت بالفعل",
+                "❌ الصفقة خلصت بالفعل",
                 ephemeral=True
             )
             return
 
         self.finished = True
 
-        # ===== نتيجة عشوائية =====
+        # نتيجة عشوائية
         result = random.choice(["up", "down"])
         win = choice == result
 
-        # 1️⃣ نقفل الزراير (تشفيـر)
+        # 1️⃣ نقفل الزراير في رسالة البداية
         self.disable_all_items()
         await interaction.response.edit_message(view=self)
 
@@ -56,13 +54,10 @@ class TradeView(View):
             color=0x2ecc71 if win else 0xe74c3c
         )
 
-        img_path = UP_IMG if result == "up" else DOWN_IMG
-        file = discord.File(img_path, filename="result.png")
-        embed.set_image(url="attachment://result.png")
+        embed.set_image(url=UP_IMG if result == "up" else DOWN_IMG)
 
         await interaction.followup.send(
             embed=embed,
-            file=file,
             ephemeral=True
         )
 
@@ -82,12 +77,9 @@ async def trade(interaction: discord.Interaction, amount: int):
         description=f"**مبلغ الصفقة:** {amount}\n\n👇 اختر الاتجاه",
         color=0x3498db
     )
-
-    file = discord.File(START_IMG, filename="start.png")
-    embed.set_image(url="attachment://start.png")
+    embed.set_image(url=START_IMG)
 
     await interaction.response.send_message(
         embed=embed,
-        view=TradeView(amount),
-        file=file
+        view=TradeView(amount)
     )
