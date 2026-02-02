@@ -43,11 +43,11 @@ class TradeView(View):
 
         self.disable_all_items()
 
-        # ⭐ الرد المباشر (وده السر)
+        # ⭐ هنا الإصلاح
         await interaction.response.edit_message(
             embed=embed,
             view=self,
-            files=[file]
+            attachments=[file]
         )
 
 
