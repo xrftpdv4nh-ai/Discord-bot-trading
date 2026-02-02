@@ -2,6 +2,8 @@ import discord
 from discord import app_commands
 from discord.ui import View, Button
 import random
+import time
+import secrets
 
 from config import MIN_BET, MAX_BET, BASE_WIN_RATE
 
@@ -20,12 +22,16 @@ class TradeView(View):
         await self.handle_trade(interaction, user_choice="DOWN")
 
     async def handle_trade(self, interaction: discord.Interaction, user_choice: str):
-        # تحديد نتيجة السوق تلقائي
-        market_up = random.random() < BASE_WIN_RATE
-        market_result = "UP" if market_up else "DOWN"
+        # ===== عشوائية قوية (كسر أي Pattern) =====
+        seed = secrets.randbelow(1_000_000) + int(time.time() * 1000)
+        random.seed(seed)
 
-        win = user_choice == market_result
+        roll = random.randint(1, 100)
+        market_result = "UP" if roll <= int(BASE_WIN_RATE * 100) else "DOWN"
 
+        win = (user_choice == market_result)
+
+        # ===== اختيار الصورة حسب نتيجة السوق =====
         if market_result == "UP":
             image = discord.File("assets/up.png")
             market_text = "📈 السهم صعد"
@@ -33,6 +39,7 @@ class TradeView(View):
             image = discord.File("assets/down.png")
             market_text = "📉 السهم هبط"
 
+        # ===== نص النتيجة =====
         if win:
             result_text = f"✅ اختيارك صحيح\n💰 كسبت {int(self.amount * 0.8):,} نقطة"
         else:
