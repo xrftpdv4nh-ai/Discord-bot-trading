@@ -9,6 +9,7 @@ from commands.embed import embed
 from commands.trade import trade
 from commands.clear import clear
 from commands.wallet import wallet
+from commands.deposit import deposit
 
 # Admin text commands (no prefix)
 from admin.wallet_admin import handle_admin_message
@@ -29,7 +30,8 @@ async def on_ready():
     bot.tree.add_command(trade)
     bot.tree.add_command(clear)
     bot.tree.add_command(wallet)
-
+    bot.tree.add_command(deposit)
+    
     await bot.tree.sync()
     print("✅ Commands Synced")
 
