@@ -4,16 +4,16 @@ from discord import app_commands
 from discord.ui import View, Button
 from datetime import date
 
-# ===== IMAGE URLS =====
+# ================== IMAGES ==================
 START_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978521375674621/371204A2-EAC5-487E-80E1-E409A2CDB31A.png"
 UP_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978522042695700/56325194-FA0D-412A-91F0-9632A7FE6AE7.png"
 DOWN_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978521715675238/56325194-FA0D-412A-91F0-9632A7FE6AE7.png"
 
-# ===== ROLE IDS =====
+# ================== ROLES ==================
 PRO_ROLE_ID = 1467922966485668118
 VIP_ROLE_ID = 1467923207389712556
 
-# ===== TEMP STORAGE (لحد ما نعمل Wallet) =====
+# ================== TEMP STORAGE ==================
 user_data = {}
 
 
@@ -51,13 +51,14 @@ def get_user_level(member: discord.Member):
         }
 
 
+# ================== VIEW ==================
 class TradeView(View):
     def __init__(self, amount: int, user_id: int, level: dict):
         super().__init__(timeout=60)
         self.amount = amount
         self.user_id = user_id
         self.level = level
-        self.finished = False  # 🔒 تشفير الصفقة
+        self.finished = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
@@ -85,33 +86,38 @@ class TradeView(View):
             return
 
         self.finished = True
-
         data = user_data[self.user_id]
 
-        # ❌ منع 3 مكاسب متتالية
+        # ===== منع 3 مكاسب ورا بعض =====
         forced_lose = data["win_streak"] >= 2
         win_rate = self.level["win_rate"]
 
-        # 📉 تقليل الحظ مع المكسب العالي
+        # ===== تقليل الحظ مع المكسب العالي =====
         if data["profit_today"] >= 40000:
             win_rate -= 0.18
         elif data["profit_today"] >= 20000:
             win_rate -= 0.08
 
-        win = False
-        if not forced_lose and random.random() < win_rate:
-            win = True
+        # ===== تحديد اتجاه السوق =====
+        if forced_lose:
+            result = "down" if choice == "up" else "up"
+        else:
+            if random.random() < win_rate:
+                result = choice
+            else:
+                result = "down" if choice == "up" else "up"
 
+        win = (choice == result)
+
+        # ===== حساب النتيجة =====
         if win:
             data["win_streak"] += 1
             profit = int(self.amount * self.level["profit_rate"])
             data["profit_today"] += profit
             result_text = f"🎉 **ربحت:** `{profit}`"
-            img = UP_IMG
         else:
             data["win_streak"] = 0
             result_text = f"💥 **خسرت:** `{self.amount}`"
-            img = DOWN_IMG
 
         data["trades_today"] += 1
 
@@ -120,11 +126,14 @@ class TradeView(View):
             description=(
                 f"🏷️ **مستواك:** `{self.level['name']}`\n"
                 f"💰 **قيمة الصفقة:** `{self.amount}`\n"
+                f"🧭 **اختيارك:** `{'صعود 📈' if choice == 'up' else 'هبوط 📉'}`\n"
+                f"📉 **حركة السوق:** `{'صعود 📈' if result == 'up' else 'هبوط 📉'}`\n\n"
                 f"{result_text}"
             ),
             color=0x2ecc71 if win else 0xe74c3c
         )
-        embed.set_image(url=img)
+
+        embed.set_image(url=UP_IMG if result == "up" else DOWN_IMG)
 
         await interaction.response.send_message(
             embed=embed,
@@ -132,6 +141,7 @@ class TradeView(View):
         )
 
 
+# ================== COMMAND ==================
 @app_commands.command(name="trade", description="بدء صفقة تداول")
 @app_commands.describe(amount="مبلغ التداول")
 async def trade(interaction: discord.Interaction, amount: int):
@@ -150,7 +160,7 @@ async def trade(interaction: discord.Interaction, amount: int):
 
     data = user_data[uid]
 
-    # ⛔ حد أقصى للصفقات اليومية
+    # ===== ليمت الصفقات =====
     if data["trades_today"] >= level["daily_limit"]:
         await interaction.response.send_message(
             f"⛔ **تم إيقاف التداول اليومي**\n"
@@ -161,7 +171,7 @@ async def trade(interaction: discord.Interaction, amount: int):
         )
         return
 
-    # ⛔ حد أدنى / أقصى
+    # ===== حد أدنى / أقصى =====
     if amount < level["min"] or amount > level["max"]:
         await interaction.response.send_message(
             f"⛔ **مبلغ غير مسموح**\n"
