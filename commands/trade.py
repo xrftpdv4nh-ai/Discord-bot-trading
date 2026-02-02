@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ui import View, Button
 from pathlib import Path
 
+# ===== PATHS =====
 ASSETS = Path("assets")
 START_IMG = ASSETS / "start.png"
 UP_IMG = ASSETS / "up.png"
@@ -17,16 +18,22 @@ class TradeView(View):
 
     @discord.ui.button(label="📈 صعود", style=discord.ButtonStyle.success)
     async def up(self, interaction: discord.Interaction, button: Button):
-        await self.finish_trade(interaction, "up")
+        await self.finish(interaction, "up")
 
     @discord.ui.button(label="📉 هبوط", style=discord.ButtonStyle.danger)
     async def down(self, interaction: discord.Interaction, button: Button):
-        await self.finish_trade(interaction, "down")
+        await self.finish(interaction, "down")
 
-    async def finish_trade(self, interaction: discord.Interaction, choice: str):
+    async def finish(self, interaction: discord.Interaction, choice: str):
+        # نتيجة عشوائية
         result = random.choice(["up", "down"])
         win = choice == result
 
+        # 1️⃣ نقفل الأزرار في رسالة البداية
+        self.disable_all_items()
+        await interaction.response.edit_message(view=self)
+
+        # 2️⃣ Embed النتيجة (Only you can see)
         embed = discord.Embed(
             title="**نتيجة التداول**",
             description=(
@@ -41,13 +48,10 @@ class TradeView(View):
         file = discord.File(img_path, filename="result.png")
         embed.set_image(url="attachment://result.png")
 
-        self.disable_all_items()
-
-        # ⭐ هنا الإصلاح
-        await interaction.response.edit_message(
+        await interaction.followup.send(
             embed=embed,
-            view=self,
-            attachments=[file]
+            file=file,
+            ephemeral=True  # 👈 Only you can see
         )
 
 
@@ -73,5 +77,5 @@ async def trade(interaction: discord.Interaction, amount: int):
     await interaction.response.send_message(
         embed=embed,
         view=TradeView(amount),
-        files=[file]
+        file=file
     )
