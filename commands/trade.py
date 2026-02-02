@@ -12,9 +12,19 @@ DOWN_IMG = ASSETS / "down.png"
 
 
 class TradeView(View):
-    def __init__(self, amount: int):
+    def __init__(self, amount: int, user_id: int):
         super().__init__(timeout=30)
         self.amount = amount
+        self.user_id = user_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message(
+                "❌ الصفقة دي مش بتاعتك",
+                ephemeral=True
+            )
+            return False
+        return True
 
     @discord.ui.button(label="صعود 📈", style=discord.ButtonStyle.success)
     async def up(self, interaction: discord.Interaction, button: Button):
@@ -25,6 +35,9 @@ class TradeView(View):
         await self.handle_trade(interaction, "down")
 
     async def handle_trade(self, interaction: discord.Interaction, choice: str):
+        # نأكّد التفاعل فورًا
+        await interaction.response.defer()
+
         result = random.choice(["up", "down"])
         win = choice == result
 
@@ -44,10 +57,10 @@ class TradeView(View):
 
         self.disable_all_items()
 
-        await interaction.response.edit_message(
+        await interaction.message.edit(
             embed=emb,
             view=self,
-            files=[file]   # ✅ الصح
+            attachments=[file]
         )
 
 
@@ -72,6 +85,6 @@ async def trade(interaction: discord.Interaction, amount: int):
 
     await interaction.response.send_message(
         embed=emb,
-        view=TradeView(amount),
-        files=[file]   # ✅ الصح
+        view=TradeView(amount, interaction.user.id),
+        files=[file]
     )
