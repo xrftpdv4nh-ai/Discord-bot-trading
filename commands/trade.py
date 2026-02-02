@@ -2,10 +2,13 @@ import random
 import discord
 from discord import app_commands
 from discord.ui import View, Button
+from pathlib import Path
 
-START_IMAGE = "https://i.imgur.com/8Km9tLL.png"   # صورة Start
-UP_IMAGE = "https://i.imgur.com/1X6RZQp.png"      # صورة صعود
-DOWN_IMAGE = "https://i.imgur.com/FKZQZ9y.png"    # صورة هبوط
+ASSETS = Path("assets")
+
+START_IMG = ASSETS / "start.png"
+UP_IMG = ASSETS / "up.png"
+DOWN_IMG = ASSETS / "down.png"
 
 
 class TradeView(View):
@@ -23,23 +26,29 @@ class TradeView(View):
 
     async def handle_trade(self, interaction: discord.Interaction, choice: str):
         result = random.choice(["up", "down"])
-
         win = choice == result
 
         emb = discord.Embed(
             title="**نتيجة التداول**",
             description=(
-                f"**المبلغ:** {self.amount}\n"
+                f"**مبلغ الصفقة:** {self.amount}\n"
                 f"**اختيارك:** {'صعود' if choice == 'up' else 'هبوط'}\n\n"
                 f"{'✅ كسبت الصفقة' if win else '❌ خسرت الصفقة'}"
             ),
             color=0x2ecc71 if win else 0xe74c3c
         )
 
-        emb.set_image(url=UP_IMAGE if result == "up" else DOWN_IMAGE)
+        image_file = UP_IMG if result == "up" else DOWN_IMG
+        file = discord.File(image_file, filename="result.png")
+        emb.set_image(url="attachment://result.png")
 
         self.disable_all_items()
-        await interaction.response.edit_message(embed=emb, view=self)
+
+        await interaction.response.edit_message(
+            embed=emb,
+            attachments=[file],
+            view=self
+        )
 
 
 @app_commands.command(name="trade", description="بدء صفقة تداول")
@@ -54,12 +63,15 @@ async def trade(interaction: discord.Interaction, amount: int):
 
     emb = discord.Embed(
         title="**ابدأ التداول**",
-        description=f"**مبلغ الصفقة:** {amount}\n\nاختر اتجاه التداول 👇",
+        description=f"**مبلغ الصفقة:** {amount}\n\n👇 اختر اتجاه التداول",
         color=0x3498db
     )
-    emb.set_image(url=START_IMAGE)
+
+    file = discord.File(START_IMG, filename="start.png")
+    emb.set_image(url="attachment://start.png")
 
     await interaction.response.send_message(
         embed=emb,
-        view=TradeView(amount)
+        view=TradeView(amount),
+        attachments=[file]
     )
