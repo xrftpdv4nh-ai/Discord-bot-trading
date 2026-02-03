@@ -38,3 +38,5 @@ INSTAPAY_NUMBER = "01124808116"
 
 # ================== Deposit Data ==================
 DATA_FILE = "data/deposits.json"
+
+PROBOT_ID = 802148738939748373
