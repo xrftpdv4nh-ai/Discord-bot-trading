@@ -1,55 +1,39 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
 import json
 import os
 import uuid
 
 # ================== SETTINGS ==================
 ADMIN_ACTION_CHANNEL_ID = 1293008901142351952
-LOG_CHANNEL_ID = 1293146723417587763
 
 VODAFONE_NUMBER = "01009137618"
 INSTAPAY_NUMBER = "01124808116"
 PROBOT_OWNER_ID = 802148738939748373
 
-PRICE_PER_1000 = 1000  # 1000 نقطة = 1000 فلوس
-
+PRICE_PER_1000 = 1000
 DATA_FILE = "data/deposits.json"
 
-# ================== TEMP STORAGE ==================
+# ================== TEMP ==================
 pending_deposits = {}
 
 # ================== HELPERS ==================
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        return {}
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_data(data):
+def save_deposit(data):
     os.makedirs("data", exist_ok=True)
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            all_data = json.load(f)
+    else:
+        all_data = {}
 
-def calc_price(points: int):
+    all_data[data["deposit_id"]] = data
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(all_data, f, indent=4, ensure_ascii=False)
+
+def calc_price(points):
     return (points // 1000) * PRICE_PER_1000
 
-def build_admin_embed(info, image_url):
-    embed = discord.Embed(
-        title="💰 طلب إيداع جديد",
-        color=0xf1c40f
-    )
-    embed.add_field(name="🆔 ID", value=info["deposit_id"], inline=False)
-    embed.add_field(name="👤 المستخدم", value=f"<@{info['user_id']}>", inline=False)
-    embed.add_field(name="💎 النقاط", value=str(info["points"]), inline=True)
-    embed.add_field(name="💵 المبلغ", value=str(info["amount"]), inline=True)
-    embed.add_field(name="🏦 الطريقة", value=info["method"], inline=False)
-    embed.set_image(url=image_url)
-    embed.set_footer(text="اكتب: موافق / رفض")
-    return embed
-
-# ================== SLASH COMMAND ==================
+# ================== SLASH ==================
 @app_commands.command(name="deposit", description="شحن رصيد")
 @app_commands.describe(points="عدد النقاط")
 async def deposit(interaction: discord.Interaction, points: int):
@@ -64,68 +48,70 @@ async def deposit(interaction: discord.Interaction, points: int):
     amount = calc_price(points)
     deposit_id = uuid.uuid4().hex[:8]
 
-    embed = discord.Embed(
-        title="💳 شحن رصيد",
-        description=(
-            f"🆔 **ID:** `{deposit_id}`\n"
-            f"💎 **النقاط:** `{points}`\n"
-            f"💵 **المبلغ المطلوب:** `{amount}`\n\n"
-            f"📲 **فودافون كاش:** `{VODAFONE_NUMBER}`\n"
-            f"🏦 **إنستا باي:** `{INSTAPAY_NUMBER}`\n"
-            f"🤖 **ProBot:** `{PROBOT_OWNER_ID}`\n\n"
-            "📎 **ابعت صورة إثبات التحويل كرسالة عادية هنا**"
-        ),
-        color=0x3498db
+    # رسالة تعليمات (Only you)
+    await interaction.response.send_message(
+        f"🧾 **طلب شحن جديد**\n"
+        f"🆔 ID: `{deposit_id}`\n"
+        f"💎 النقاط: `{points}`\n"
+        f"💵 المبلغ: `{amount}`\n\n"
+        f"📲 فودافون: `{VODAFONE_NUMBER}`\n"
+        f"🏦 إنستا باي: `{INSTAPAY_NUMBER}`\n"
+        f"🤖 ProBot: `{PROBOT_OWNER_ID}`\n\n"
+        f"📎 **ابعت صورة إثبات التحويل كرسالة عادية في الروم**",
+        ephemeral=True
     )
 
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    # رسالة عامة نربطها بالصورة
+    public_msg = await interaction.channel.send(
+        f"📎 <@{interaction.user.id}> ابعت صورة إثبات التحويل هنا"
+    )
 
-    # حفظ الطلب مؤقتًا
     pending_deposits[str(interaction.user.id)] = {
         "deposit_id": deposit_id,
         "user_id": interaction.user.id,
         "points": points,
         "amount": amount,
-        "method": "غير محدد",
-        "status": "waiting_proof",
-        "user_message": await interaction.original_response()
+        "message": public_msg
     }
 
 # ================== IMAGE HANDLER ==================
 async def handle_proof_message(message: discord.Message):
 
-    if not message.attachments:
+    if message.author.bot or not message.attachments:
         return
 
-    user_id = str(message.author.id)
-    if user_id not in pending_deposits:
+    uid = str(message.author.id)
+    if uid not in pending_deposits:
         return
 
     attachment = message.attachments[0]
     if not attachment.content_type or not attachment.content_type.startswith("image"):
         return
 
-    info = pending_deposits[user_id]
+    data = pending_deposits[uid]
 
     # حذف صورة المستخدم
     await message.delete()
 
-    # تعديل رسالة المستخدم
-    await info["user_message"].edit(
-        content="⏳ **في انتظار استلام الرصيد خلال 5 دقائق**"
+    # تعديل الرسالة العامة
+    await data["message"].edit(
+        content="⏳ **تم استلام الإثبات – في انتظار مراجعة الأدمن**"
     )
 
     # إرسال الطلب لروم الأدمن
     admin_channel = message.guild.get_channel(ADMIN_ACTION_CHANNEL_ID)
     if admin_channel:
-        await admin_channel.send(
-            embed=build_admin_embed(info, attachment.url)
+        embed = discord.Embed(
+            title="💰 طلب شحن جديد",
+            color=0xf1c40f
         )
+        embed.add_field(name="🆔 ID", value=data["deposit_id"], inline=False)
+        embed.add_field(name="👤 المستخدم", value=f"<@{data['user_id']}>", inline=False)
+        embed.add_field(name="💎 النقاط", value=str(data["points"]), inline=True)
+        embed.add_field(name="💵 المبلغ", value=str(data["amount"]), inline=True)
+        embed.set_image(url=attachment.url)
 
-    # حفظ في الملف
-    data = load_data()
-    data[info["deposit_id"]] = info
-    save_data(data)
+        await admin_channel.send(embed=embed)
 
-    # مسح من المؤقت
-    del pending_deposits[user_id]
+    save_deposit(data)
+    del pending_deposits[uid]
