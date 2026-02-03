@@ -1,117 +1,151 @@
 import discord
 from discord import app_commands
-import json
-import os
-import uuid
+from datetime import datetime
 
-# ================== SETTINGS ==================
-ADMIN_ACTION_CHANNEL_ID = 1293008901142351952
+from config import (
+    ADMIN_ACTION_CHANNEL_ID,
+    LOG_CHANNEL_ID,
+    VODAFONE_NUMBER,
+    INSTAPAY_NUMBER,
+    PROBOT_ID
+)
 
-VODAFONE_NUMBER = "01009137618"
-INSTAPAY_NUMBER = "01124808116"
-PROBOT_OWNER_ID = 802148738939748373
+# نخزن الطلبات مؤقتًا
+PENDING_DEPOSITS = {}
 
-PRICE_PER_1000 = 1000
-DATA_FILE = "data/deposits.json"
-
-# ================== TEMP ==================
-pending_deposits = {}
-
-# ================== HELPERS ==================
-def save_deposit(data):
-    os.makedirs("data", exist_ok=True)
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            all_data = json.load(f)
-    else:
-        all_data = {}
-
-    all_data[data["deposit_id"]] = data
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(all_data, f, indent=4, ensure_ascii=False)
-
-def calc_price(points):
-    return (points // 1000) * PRICE_PER_1000
-
-# ================== SLASH ==================
+# ================= SLASH COMMAND =================
 @app_commands.command(name="deposit", description="شحن رصيد")
 @app_commands.describe(points="عدد النقاط")
 async def deposit(interaction: discord.Interaction, points: int):
-
-    if points < 1000 or points % 1000 != 0:
+    if points < 1000:
         await interaction.response.send_message(
-            "⛔ الحد الأدنى 1000 نقطة ومضاعفاتها فقط",
+            "⛔ الحد الأدنى للشحن **1000 نقطة**",
             ephemeral=True
         )
         return
 
-    amount = calc_price(points)
-    deposit_id = uuid.uuid4().hex[:8]
+    deposit_id = hex(int(datetime.now().timestamp()))[2:]
+    amount = points  # 1 نقطة = 1 جنيه (تقدر تغيرها بعدين)
 
-    # رسالة تعليمات (Only you)
-    await interaction.response.send_message(
-        f"🧾 **طلب شحن جديد**\n"
-        f"🆔 ID: `{deposit_id}`\n"
-        f"💎 النقاط: `{points}`\n"
-        f"💵 المبلغ: `{amount}`\n\n"
-        f"📲 فودافون: `{VODAFONE_NUMBER}`\n"
-        f"🏦 إنستا باي: `{INSTAPAY_NUMBER}`\n"
-        f"🤖 ProBot: `{PROBOT_OWNER_ID}`\n\n"
-        f"📎 **ابعت صورة إثبات التحويل كرسالة عادية في الروم**",
-        ephemeral=True
-    )
-
-    # رسالة عامة نربطها بالصورة
-    public_msg = await interaction.channel.send(
-        f"📎 <@{interaction.user.id}> ابعت صورة إثبات التحويل هنا"
-    )
-
-    pending_deposits[str(interaction.user.id)] = {
-        "deposit_id": deposit_id,
-        "user_id": interaction.user.id,
+    PENDING_DEPOSITS[interaction.user.id] = {
+        "id": deposit_id,
         "points": points,
         "amount": amount,
-        "message": public_msg
+        "method": None
     }
 
-# ================== IMAGE HANDLER ==================
-async def handle_proof_message(message: discord.Message):
+    embed = discord.Embed(
+        title="💳 شحن رصيد",
+        description=(
+            f"🆔 **ID:** `{deposit_id}`\n"
+            f"💎 **النقاط:** `{points}`\n"
+            f"💰 **المبلغ المطلوب:** `{amount}`\n\n"
+            "**اختر طريقة الدفع:**"
+        ),
+        color=0x3498db
+    )
 
-    if message.author.bot or not message.attachments:
+    view = PaymentMethodView()
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
+# ================= PAYMENT VIEW =================
+class PaymentMethodView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=300)
+
+    @discord.ui.button(label="📱 فودافون كاش", style=discord.ButtonStyle.success)
+    async def vodafone(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.select_method(interaction, "Vodafone")
+
+    @discord.ui.button(label="🏦 إنستا باي", style=discord.ButtonStyle.primary)
+    async def instapay(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.select_method(interaction, "InstaPay")
+
+    @discord.ui.button(label="🤖 ProBot", style=discord.ButtonStyle.secondary)
+    async def probot(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.select_method(interaction, "ProBot")
+
+    async def select_method(self, interaction: discord.Interaction, method: str):
+        data = PENDING_DEPOSITS.get(interaction.user.id)
+        if not data:
+            await interaction.response.send_message("⛔ الطلب غير موجود", ephemeral=True)
+            return
+
+        data["method"] = method
+
+        if method == "Vodafone":
+            target = VODAFONE_NUMBER
+        elif method == "InstaPay":
+            target = INSTAPAY_NUMBER
+        else:
+            target = str(PROBOT_ID)
+
+        embed = discord.Embed(
+            title="📎 إثبات التحويل",
+            description=(
+                f"🆔 **ID:** `{data['id']}`\n"
+                f"💎 **النقاط:** `{data['points']}`\n"
+                f"💰 **المبلغ:** `{data['amount']}`\n"
+                f"💳 **الطريقة:** `{method}`\n\n"
+                f"📤 **حوّل على:** `{target}`\n\n"
+                "📎 **ابعت صورة إثبات التحويل كرسالة عادية في الروم**"
+            ),
+            color=0xf1c40f
+        )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+# ================= PROOF HANDLER =================
+async def handle_proof_message(message: discord.Message):
+    if message.author.bot:
         return
 
-    uid = str(message.author.id)
-    if uid not in pending_deposits:
+    if not message.attachments:
+        return
+
+    user_id = message.author.id
+    if user_id not in PENDING_DEPOSITS:
         return
 
     attachment = message.attachments[0]
-    if not attachment.content_type or not attachment.content_type.startswith("image"):
-        return
+    image_url = attachment.url
+    data = PENDING_DEPOSITS[user_id]
 
-    data = pending_deposits[uid]
+    # احذف رسالة الصورة
+    try:
+        await message.delete()
+    except:
+        pass
 
-    # حذف صورة المستخدم
-    await message.delete()
+    admin_channel = message.guild.get_channel(ADMIN_ACTION_CHANNEL_ID)
+    log_channel = message.guild.get_channel(LOG_CHANNEL_ID)
 
-    # تعديل الرسالة العامة
-    await data["message"].edit(
-        content="⏳ **تم استلام الإثبات – في انتظار مراجعة الأدمن**"
+    embed = discord.Embed(
+        title="📥 طلب شحن جديد",
+        description=(
+            f"👤 **المستخدم:** {message.author.mention}\n"
+            f"🆔 **ID:** `{data['id']}`\n"
+            f"💎 **النقاط:** `{data['points']}`\n"
+            f"💰 **المبلغ:** `{data['amount']}`\n"
+            f"💳 **الطريقة:** `{data['method']}`\n\n"
+            f"🖼️ **إثبات التحويل:** [اضغط هنا]({image_url})"
+        ),
+        color=0x2ecc71,
+        timestamp=datetime.utcnow()
     )
 
-    # إرسال الطلب لروم الأدمن
-    admin_channel = message.guild.get_channel(ADMIN_ACTION_CHANNEL_ID)
     if admin_channel:
-        embed = discord.Embed(
-            title="💰 طلب شحن جديد",
-            color=0xf1c40f
-        )
-        embed.add_field(name="🆔 ID", value=data["deposit_id"], inline=False)
-        embed.add_field(name="👤 المستخدم", value=f"<@{data['user_id']}>", inline=False)
-        embed.add_field(name="💎 النقاط", value=str(data["points"]), inline=True)
-        embed.add_field(name="💵 المبلغ", value=str(data["amount"]), inline=True)
-        embed.set_image(url=attachment.url)
-
         await admin_channel.send(embed=embed)
 
-    save_deposit(data)
-    del pending_deposits[uid]
+    if log_channel:
+        await log_channel.send(embed=embed)
+
+    await message.channel.send(
+        "⏳ **تم استلام إثبات التحويل**\n"
+        "يرجى انتظار موافقة الإدارة خلال دقائق.",
+        delete_after=10
+    )
+
+    del PENDING_DEPOSITS[user_id]
