@@ -35,7 +35,14 @@ async def on_ready():
     
     await bot.tree.sync()
     print("✅ Commands Synced")
-
+    # 🔴 اختبار روم الأدمن
+    try:
+        ch = await bot.fetch_channel(1293008901142351952)
+        await ch.send("✅ TEST MESSAGE FROM BOT")
+        print("✅ Admin channel test sent")
+    except Exception as e:
+        print("❌ Admin channel test failed:", e)
+        
 @bot.event
 async def on_message(message):
     # تجاهل رسائل البوت نفسه
