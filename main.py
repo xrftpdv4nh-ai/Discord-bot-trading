@@ -9,7 +9,7 @@ from commands.embed import embed
 from commands.trade import trade
 from commands.clear import clear
 from commands.wallet import wallet
-from commands.deposit import deposit, DepositView  # ⬅️ مهم
+from commands.deposit import deposit, DepositView
 
 # Handlers
 from commands.deposit import handle_proof_message
@@ -20,13 +20,13 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+
 @bot.event
 async def on_ready():
     print("🟢 Bot Online")
 
-    # 🔴 تسجيل الـ View علشان أزرار Confirm / Reject تشتغل
-    # لازم timeout=None جوه DepositView
-    bot.add_view(DepositView(None))
+    # ✅ تسجيل View ثابتة علشان أزرار Confirm / Reject تفضل شغالة
+    bot.add_view(DepositView())
 
     bot.tree.clear_commands(guild=None)
 
@@ -48,18 +48,20 @@ async def on_ready():
     except Exception as e:
         print("❌ Admin channel test failed:", e)
 
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    # 1️⃣ التقاط إثباتات التحويل
+    # 1️⃣ إثبات التحويل
     await handle_proof_message(message)
 
-    # 2️⃣ أوامر الأدمن النصية
+    # 2️⃣ أوامر الأدمن
     await handle_admin_message(bot, message)
 
-    # 3️⃣ مهم جدًا لتشغيل أي أوامر أخرى
+    # 3️⃣ مهم جدًا
     await bot.process_commands(message)
+
 
 bot.run(BOT_TOKEN)
