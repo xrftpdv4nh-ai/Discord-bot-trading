@@ -50,7 +50,7 @@ async def on_message(message):
         return
 
     # 1️⃣ التقاط صور إثبات التحويل
-    await handle_proof_message(message)
+#    await handle_proof_message(message)
 
     # 2️⃣ أوامر الأدمن النصية (add / remove / ahelp / جاهز)
     await handle_admin_message(bot, message)
