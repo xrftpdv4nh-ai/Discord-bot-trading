@@ -92,30 +92,62 @@ class AdminDecisionView(View):
     def __init__(self, request_id):
         super().__init__(timeout=None)
         self.request_id = request_id
-        self.used = False
 
-    async def finalize(self, interaction, approved: bool):
-        if self.used:
-            await interaction.response.send_message("❌ الطلب ده اتنفذ بالفعل", ephemeral=True)
-            return
+    @discord.ui.button(
+        label="Confirm",
+        style=discord.ButtonStyle.success,
+        custom_id="deposit_confirm"
+    )
+    async def confirm(self, interaction: discord.Interaction, button: Button):
+        await self.handle(interaction, approved=True)
 
-        self.used = True
+    @discord.ui.button(
+        label="Reject",
+        style=discord.ButtonStyle.danger,
+        custom_id="deposit_reject"
+    )
+    async def reject(self, interaction: discord.Interaction, button: Button):
+        await self.handle(interaction, approved=False)
 
+    async def handle(self, interaction: discord.Interaction, approved: bool):
         deposits = load_json(DEPOSIT_FILE, {})
         wallets = load_json(WALLET_FILE, {})
 
+        if self.request_id not in deposits:
+            await interaction.response.send_message(
+                "❌ الطلب ده غير موجود أو اتنفذ قبل كده",
+                ephemeral=True
+            )
+            return
+
         data = deposits[self.request_id]
-        user_id = str(data["user_id"])
-        user = interaction.guild.get_member(int(user_id))
+        if data.get("status") not in ["waiting_review", "waiting_proof"]:
+            await interaction.response.send_message(
+                "⚠️ الطلب ده اتراجع بالفعل",
+                ephemeral=True
+            )
+            return
+
+        user = interaction.guild.get_member(int(data["user_id"]))
 
         if approved:
-            wallets.setdefault(user_id, {"balance": 0})
-            wallets[user_id]["balance"] += data["points"]
-            deposits[self.request_id]["status"] = "approved"
-            await user.send(f"✅ تم شحن رصيدك **{data['points']} نقطة** بنجاح")
+            wallets.setdefault(str(user.id), {"balance": 0})
+            wallets[str(user.id)]["balance"] += data["points"]
+            data["status"] = "approved"
+
+            try:
+                await user.send(
+                    f"✅ تم شحن **{data['points']} نقطة** بنجاح"
+                )
+            except:
+                pass
+
         else:
-            deposits[self.request_id]["status"] = "rejected"
-            await user.send("❌ تم رفض طلب الشحن")
+            data["status"] = "rejected"
+            try:
+                await user.send("❌ تم رفض طلب الشحن")
+            except:
+                pass
 
         save_json(WALLET_FILE, wallets)
         save_json(DEPOSIT_FILE, deposits)
@@ -124,14 +156,6 @@ class AdminDecisionView(View):
             item.disabled = True
 
         await interaction.response.edit_message(view=self)
-
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success)
-    async def confirm(self, interaction: discord.Interaction, button: Button):
-        await self.finalize(interaction, True)
-
-    @discord.ui.button(label="Reject", style=discord.ButtonStyle.danger)
-    async def reject(self, interaction: discord.Interaction, button: Button):
-        await self.finalize(interaction, False)
 
 # ================== SLASH COMMAND ==================
 @app_commands.command(name="deposit", description="شحن رصيد")
