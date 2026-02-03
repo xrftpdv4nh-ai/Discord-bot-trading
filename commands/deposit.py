@@ -4,6 +4,8 @@ from discord.ui import View, Button, Select
 import json
 import os
 import uuid
+# تأكيد وجود فولدر data
+os.makedirs("data", exist_ok=True)
 
 # ================== CONFIG ==================
 VODAFONE_NUMBER = "01009137618"
