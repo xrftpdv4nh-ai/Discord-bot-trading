@@ -33,7 +33,7 @@ def save_data(data):
 # ================== USER VIEW ==================
 class DepositView(View):
     def __init__(self, user, amount):
-        super().__init__(timeout=600)  # 10 دقائق
+        super().__init__(timeout=600)
         self.user = user
         self.amount = amount
         self.deposit_id = str(uuid.uuid4())[:8]
@@ -78,7 +78,6 @@ class DepositView(View):
         }
         save_data(data)
 
-        # تعديل رسالة Only You
         embed = discord.Embed(
             title="📎 إرسال إثبات التحويل",
             description=(
@@ -86,21 +85,20 @@ class DepositView(View):
                 f"💰 **المبلغ:** `{self.amount}`\n"
                 f"💳 **الطريقة:** `{method}`\n\n"
                 f"{instructions}\n\n"
-                "📎 **هيتم إرسال رسالة عادية دلوقتي علشان تعمل Reply بالصورة**"
+                "📎 **ابعت صورة إثبات التحويل الآن**\n"
+                "⏳ لديك 10 دقائق"
             ),
             color=0xe67e22
         )
 
         await interaction.response.edit_message(embed=embed, view=None)
 
-        # رسالة عادية للـ Reply
         await interaction.followup.send(
             embed=discord.Embed(
                 title="📎 إثبات التحويل",
                 description=(
                     f"🆔 **ID:** `{self.deposit_id}`\n\n"
-                    "📎 **ابعت صورة إثبات التحويل**\n"
-                    "**Reply على الرسالة دي فقط**"
+                    "📎 **ابعت صورة إثبات التحويل هنا**"
                 ),
                 color=0xf39c12
             ),
@@ -137,40 +135,39 @@ class AdminView(View):
 async def handle_proof_message(message):
     if message.author.bot:
         return
-    if not message.attachments or not message.reference:
+
+    if not message.attachments:
         return
 
     data = load_data()
 
-    for deposit_id, entry in data.items():
-        if (
-            entry["user_id"] == message.author.id
-            and entry["status"] == "waiting_proof"
-        ):
+    # نجيب أحدث طلب مفتوح للمستخدم
+    for deposit_id, entry in reversed(list(data.items())):
+        if entry["user_id"] == message.author.id and entry["status"] == "waiting_proof":
             entry["proof"] = message.attachments[0].url
             entry["status"] = "pending"
             save_data(data)
 
-            # تعديل رسالة البوت الأصلية
+            # تعديل رسالة الطلب
             try:
-                bot_msg = await message.channel.fetch_message(
-                    message.reference.message_id
-                )
-                embed = bot_msg.embeds[0]
-                embed.description = (
-                    f"🆔 **ID:** `{deposit_id}`\n"
-                    f"💰 **المبلغ:** `{entry['amount']}`\n"
-                    f"💳 **الطريقة:** `{entry['method']}`\n\n"
-                    "⏳ **في انتظار استلام الرصيد خلال 5 دقائق**"
-                )
-                embed.color = 0xf1c40f
-                await bot_msg.edit(embed=embed)
+                async for msg in message.channel.history(limit=20):
+                    if msg.author.bot and msg.embeds:
+                        emb = msg.embeds[0]
+                        if deposit_id in emb.description:
+                            emb.description = (
+                                f"🆔 **ID:** `{deposit_id}`\n"
+                                f"💰 **المبلغ:** `{entry['amount']}`\n"
+                                f"💳 **الطريقة:** `{entry['method']}`\n\n"
+                                "⏳ **في انتظار استلام الرصيد خلال 5 دقائق**"
+                            )
+                            emb.color = 0xf1c40f
+                            await msg.edit(embed=emb)
+                            break
             except:
                 pass
 
             await message.delete()
 
-            # إرسال للأدمن
             admin_channel = message.client.get_channel(ADMIN_ACTION_CHANNEL_ID)
             if admin_channel:
                 emb = discord.Embed(
@@ -196,10 +193,7 @@ async def handle_proof_message(message):
 async def handle_decision(interaction, deposit_id, approve):
     data = load_data()
     if deposit_id not in data:
-        await interaction.response.send_message(
-            "❌ الطلب غير موجود",
-            ephemeral=True
-        )
+        await interaction.response.send_message("❌ الطلب غير موجود", ephemeral=True)
         return
 
     entry = data[deposit_id]
@@ -213,16 +207,6 @@ async def handle_decision(interaction, deposit_id, approve):
         wallets.setdefault(uid, {"balance": 0})
         wallets[uid]["balance"] += entry["amount"]
         save_wallets(wallets)
-
-    user = interaction.client.get_user(entry["user_id"])
-    if user:
-        try:
-            await user.send(
-                f"{'✅ تم قبول' if approve else '❌ تم رفض'} الإيداع\n"
-                f"💰 `{entry['amount']}`"
-            )
-        except:
-            pass
 
     log = interaction.client.get_channel(LOG_CHANNEL_ID)
     if log:
@@ -241,18 +225,12 @@ async def handle_decision(interaction, deposit_id, approve):
 @app_commands.describe(amount="مبلغ الإيداع")
 async def deposit(interaction, amount: int):
     if amount <= 0:
-        await interaction.response.send_message(
-            "❌ مبلغ غير صالح",
-            ephemeral=True
-        )
+        await interaction.response.send_message("❌ مبلغ غير صالح", ephemeral=True)
         return
 
     embed = discord.Embed(
         title="💰 إنشاء طلب إيداع",
-        description=(
-            f"💰 **المبلغ:** `{amount}`\n\n"
-            "اختر طريقة الإيداع:"
-        ),
+        description=f"💰 **المبلغ:** `{amount}`\n\nاختر طريقة الإيداع:",
         color=0x2ecc71
     )
 
