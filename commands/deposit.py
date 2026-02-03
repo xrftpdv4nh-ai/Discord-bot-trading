@@ -3,64 +3,21 @@ from discord import app_commands
 from discord.ui import View, Button
 import uuid
 
-# ========= CONFIG =========
-ADMIN_CHANNEL_ID = 1293008901142351952  # روم القبول / الرفض
+# ================== CONFIG ==================
+ADMIN_CHANNEL_ID = 1293008901142351952   # روم القبول / الرفض
+LOG_CHANNEL_ID = 1293146723417587763     # روم اللوج
+
 VODAFONE_NUMBER = "01009137618"
 INSTAPAY_NUMBER = "01124808116"
 PROBOT_ID = "802148738939748373"
 
-# ========= MEMORY =========
-pending_requests = {}   # user_id -> data
+# ================== TEMP STORAGE ==================
 awaiting_proof = {}     # user_id -> request_id
+pending_requests = {}   # user_id -> data
 
-
-# ========= PAYMENT VIEW =========
-class PaymentMethodView(View):
-    def __init__(self, user: discord.Member, amount: int):
-        super().__init__(timeout=300)
-        self.user = user
-        self.amount = amount
-        self.request_id = str(uuid.uuid4())[:8]
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.id == self.user.id
-
-    async def _select(self, interaction, method, target):
-        pending_requests[self.user.id] = {
-            "id": self.request_id,
-            "user": self.user,
-            "amount": self.amount,
-            "method": method,
-            "target": target
-        }
-        awaiting_proof[self.user.id] = self.request_id
-
-        await interaction.response.send_message(
-            f"📎 **ابعت صورة إثبات التحويل هنا**\n\n"
-            f"🆔 ID: `{self.request_id}`\n"
-            f"💰 المبلغ: `{self.amount}`\n"
-            f"💳 الطريقة: `{method}`\n"
-            f"➡️ حوّل على: `{target}`",
-            ephemeral=False
-        )
-        self.stop()
-
-    @discord.ui.button(label="Vodafone Cash", style=discord.ButtonStyle.primary)
-    async def vodafone(self, interaction: discord.Interaction, button: Button):
-        await self._select(interaction, "Vodafone Cash", VODAFONE_NUMBER)
-
-    @discord.ui.button(label="InstaPay", style=discord.ButtonStyle.success)
-    async def instapay(self, interaction: discord.Interaction, button: Button):
-        await self._select(interaction, "InstaPay", INSTAPAY_NUMBER)
-
-    @discord.ui.button(label="ProBot Credit", style=discord.ButtonStyle.secondary)
-    async def probot(self, interaction: discord.Interaction, button: Button):
-        await self._select(interaction, "ProBot Credit", PROBOT_ID)
-
-
-# ========= ADMIN VIEW =========
+# ================== ADMIN VIEW ==================
 class AdminDecisionView(View):
-    def __init__(self, request_id: str, user: discord.Member, amount: int):
+    def __init__(self, request_id, user, amount):
         super().__init__(timeout=None)
         self.request_id = request_id
         self.user = user
@@ -69,44 +26,85 @@ class AdminDecisionView(View):
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message(
-            f"✅ تم قبول الإيداع `{self.request_id}`",
+            f"✅ **تم قبول الإيداع**\n👤 {self.user.mention}\n💰 `{self.amount}`",
             ephemeral=True
         )
-        self.stop()
+
+        log = interaction.guild.get_channel(LOG_CHANNEL_ID)
+        if log:
+            await log.send(
+                f"✅ **إيداع مقبول**\n"
+                f"👤 {self.user.mention}\n"
+                f"💰 `{self.amount}`\n"
+                f"🆔 `{self.request_id}`"
+            )
+
+        self.disable_all_items()
+        await interaction.message.edit(view=self)
 
     @discord.ui.button(label="Reject", style=discord.ButtonStyle.danger)
     async def reject(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message(
-            f"❌ تم رفض الإيداع `{self.request_id}`",
+            f"❌ **تم رفض الإيداع**\n👤 {self.user.mention}",
             ephemeral=True
         )
-        self.stop()
 
+        log = interaction.guild.get_channel(LOG_CHANNEL_ID)
+        if log:
+            await log.send(
+                f"❌ **إيداع مرفوض**\n"
+                f"👤 {self.user.mention}\n"
+                f"🆔 `{self.request_id}`"
+            )
 
-# ========= SLASH COMMAND =========
+        self.disable_all_items()
+        await interaction.message.edit(view=self)
+
+# ================== SLASH COMMAND ==================
 @app_commands.command(name="deposit", description="شحن رصيد")
 @app_commands.describe(amount="عدد النقاط")
 async def deposit(interaction: discord.Interaction, amount: int):
-    if amount < 1000:
+    if amount <= 0:
         await interaction.response.send_message(
-            "❌ الحد الأدنى للشحن 1000 نقطة",
+            "⛔ **رقم غير صحيح**",
             ephemeral=True
         )
         return
 
+    request_id = uuid.uuid4().hex[:8]
+
+    pending_requests[interaction.user.id] = {
+        "user": interaction.user,
+        "amount": amount
+    }
+    awaiting_proof[interaction.user.id] = request_id
+
     embed = discord.Embed(
-        title="💰 شحن رصيد",
-        description=f"عدد النقاط: `{amount}`\nاختر طريقة الدفع 👇",
+        title="💳 شحن رصيد",
         color=0x3498db
     )
+    embed.add_field(name="🆔 ID", value=request_id, inline=False)
+    embed.add_field(name="💎 النقاط", value=str(amount), inline=True)
+    embed.add_field(name="💰 المبلغ", value=str(amount), inline=True)
+
+    embed.add_field(
+        name="طرق الدفع",
+        value=(
+            f"📱 **Vodafone Cash:** `{VODAFONE_NUMBER}`\n"
+            f"🏦 **InstaPay:** `{INSTAPAY_NUMBER}`\n"
+            f"🤖 **ProBot Credit:** `{PROBOT_ID}`"
+        ),
+        inline=False
+    )
+
+    embed.set_footer(text="📎 ابعت صورة إثبات التحويل كرسالة عادية في نفس الروم")
 
     await interaction.response.send_message(
         embed=embed,
-        view=PaymentMethodView(interaction.user, amount)
+        ephemeral=True
     )
 
-
-# ========= PROOF HANDLER =========
+# ================== PROOF HANDLER ==================
 async def handle_proof_message(message: discord.Message):
     if message.author.id not in awaiting_proof:
         return
@@ -116,11 +114,12 @@ async def handle_proof_message(message: discord.Message):
 
     request_id = awaiting_proof.pop(message.author.id)
     data = pending_requests.pop(message.author.id, None)
-
     if not data:
         return
 
-    # حذف صورة المستخدم
+    attachment = message.attachments[0]
+    file = await attachment.to_file()
+
     try:
         await message.delete()
     except:
@@ -134,14 +133,14 @@ async def handle_proof_message(message: discord.Message):
         title="📥 طلب إيداع جديد",
         color=0xf1c40f
     )
-    embed.add_field(name="المستخدم", value=data["user"].mention, inline=False)
-    embed.add_field(name="ID", value=f"`{request_id}`", inline=False)
-    embed.add_field(name="المبلغ", value=str(data["amount"]), inline=True)
-    embed.add_field(name="الطريقة", value=data["method"], inline=True)
+    embed.add_field(name="👤 المستخدم", value=data["user"].mention, inline=False)
+    embed.add_field(name="💰 المبلغ", value=str(data["amount"]), inline=True)
+    embed.add_field(name="🆔 ID", value=request_id, inline=True)
 
-    embed.set_image(url=message.attachments[0].url)
+    embed.set_image(url=f"attachment://{file.filename}")
 
     await admin_channel.send(
         embed=embed,
+        file=file,
         view=AdminDecisionView(request_id, data["user"], data["amount"])
     )
