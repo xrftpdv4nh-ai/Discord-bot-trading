@@ -16,7 +16,7 @@ from commands.deposit import handle_proof_message
 from admin.wallet_admin import handle_admin_message
 
 intents = discord.Intents.default()
-intents.message_content = True  # مهم جدًا علشان قراءة الرسائل
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -32,30 +32,30 @@ async def on_ready():
     bot.tree.add_command(clear)
     bot.tree.add_command(wallet)
     bot.tree.add_command(deposit)
-    
+
     await bot.tree.sync()
     print("✅ Commands Synced")
-    # 🔴 اختبار روم الأدمن
+
+    # Test admin channel
     try:
         ch = await bot.fetch_channel(1293008901142351952)
         await ch.send("✅ TEST MESSAGE FROM BOT")
         print("✅ Admin channel test sent")
     except Exception as e:
         print("❌ Admin channel test failed:", e)
-        
+
 @bot.event
 async def on_message(message):
-    # تجاهل رسائل البوت نفسه
     if message.author.bot:
         return
 
-    # 1️⃣ التقاط صور إثبات التحويل
+    # 1️⃣ إثبات التحويل
     await handle_proof_message(message)
 
-    # 2️⃣ أوامر الأدمن النصية (add / remove / ahelp / جاهز)
-    handle_admin_message(bot, message)
+    # 2️⃣ أوامر الأدمن
+    await handle_admin_message(bot, message)
 
-    # 3️⃣ تشغيل أي أوامر prefix عادية
+    # 3️⃣ مهم جدًا لتشغيل slash commands
     await bot.process_commands(message)
-    
+
 bot.run(BOT_TOKEN)
