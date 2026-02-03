@@ -11,7 +11,8 @@ from commands.clear import clear
 from commands.wallet import wallet
 from commands.deposit import deposit
 
-# Admin text commands (no prefix)
+# Handlers
+from commands.deposit import handle_proof_message
 from admin.wallet_admin import handle_admin_message
 
 intents = discord.Intents.default()
@@ -37,10 +38,17 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    # أوامر الأدمن النصية (add / remove / ahelp / جاهز)
-    handle_admin_message(bot, message)
+    # تجاهل رسائل البوت نفسه
+    if message.author.bot:
+        return
 
-    # خلي أي أوامر تانية شغالة (لو عندك prefix أو غيره)
+    # 1️⃣ التقاط صور إثبات التحويل
+    await handle_proof_message(message)
+
+    # 2️⃣ أوامر الأدمن النصية (add / remove / ahelp / جاهز)
+    await handle_admin_message(bot, message)
+
+    # 3️⃣ تشغيل أي أوامر prefix عادية
     await bot.process_commands(message)
 
 bot.run(BOT_TOKEN)
