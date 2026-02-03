@@ -35,3 +35,6 @@ PROBOT_OWNER_ID = 802148738939748373
 
 VODAFONE_NUMBER = "01009137618"
 INSTAPAY_NUMBER = "01124808116"
+
+# ================== Deposit Data ==================
+DATA_FILE = "data/deposits.json"
