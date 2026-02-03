@@ -205,9 +205,15 @@ async def handle_proof_message(message: discord.Message):
             file = await attachment.to_file()
 
             try:
-                await message.delete()
-            except:
-                pass
+    await message.delete()
+except:
+    pass
+
+await message.channel.send(
+    "⏳ **تم استلام إثبات التحويل**\n"
+    "طلبك الآن **تحت المراجعة** وسيتم الرد عليك قريبًا ✅",
+    delete_after=15
+)
 
             admin_channel = message.guild.get_channel(ADMIN_CHANNEL_ID)
             if not admin_channel:
