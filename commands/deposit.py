@@ -42,16 +42,19 @@ class PaymentView(View):
         await interaction.message.edit(view=self)
 
     @discord.ui.button(label="📱 Vodafone Cash", style=discord.ButtonStyle.primary)
-    async def vodafone(self, interaction: discord.Interaction, button: Button):
-        await self.select_method(interaction, "Vodafone")
+async def vodafone(self, interaction: discord.Interaction, button: Button):
+    await interaction.response.defer(ephemeral=True)
+    await self.select_method(interaction, "Vodafone")
 
     @discord.ui.button(label="💳 InstaPay", style=discord.ButtonStyle.success)
-    async def instapay(self, interaction: discord.Interaction, button: Button):
-        await self.select_method(interaction, "InstaPay")
+async def instapay(self, interaction: discord.Interaction, button: Button):
+    await interaction.response.defer(ephemeral=True)
+    await self.select_method(interaction, "InstaPay")
 
-    @discord.ui.button(label="🤖 ProBot", style=discord.ButtonStyle.secondary)
-    async def probot(self, interaction: discord.Interaction, button: Button):
-        await self.select_method(interaction, "ProBot")
+@discord.ui.button(label="🤖 ProBot", style=discord.ButtonStyle.secondary)
+async def probot(self, interaction: discord.Interaction, button: Button):
+    await interaction.response.defer(ephemeral=True)
+    await self.select_method(interaction, "ProBot")
 
     async def select_method(self, interaction, method):
         data = load_data()
