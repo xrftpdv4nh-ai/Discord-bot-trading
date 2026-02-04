@@ -10,7 +10,8 @@ from config import (
     ADMIN_CHANNEL_ID,
     VODAFONE_NUMBER,
     INSTAPAY_NUMBER,
-    PROBOT_ID
+    PROBOT_ID,
+    DEPOSIT_CHANNEL_ID   # ✅ جديد
 )
 
 # ================== FILES ==================
@@ -161,6 +162,15 @@ class AdminView(View):
 @app_commands.command(name="deposit", description="شحن رصيد")
 @app_commands.describe(points="عدد النقاط")
 async def deposit(interaction: discord.Interaction, points: int):
+
+    # ✅ تقييد روم الإيداع فقط
+    if interaction.channel.id != DEPOSIT_CHANNEL_ID:
+        await interaction.response.send_message(
+            "🚫 **This channel is for deposits only.**\nPlease use the deposit channel.",
+            ephemeral=True
+        )
+        return
+
     req_id = uuid.uuid4().hex[:8]
 
     deposits = load_json(DEPOSIT_FILE, {})
