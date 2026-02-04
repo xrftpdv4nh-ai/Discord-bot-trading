@@ -1,59 +1,93 @@
+import discord
+from config import ADMIN_ROLE_ID
 from utils.json_db import load_json, save_json
 
 WALLET_FILE = "data/wallets.json"
 
 
-# ===============================
-# Wallet Functions
-# ===============================
+# ========================
+# أدوات مساعدة
+# ========================
+
+def get_balance(user_id: int) -> int:
+    wallets = load_json(WALLET_FILE, {})
+    return int(wallets.get(str(user_id), 0))
+
 
 def add_balance(user_id: int, amount: int):
     wallets = load_json(WALLET_FILE, {})
     uid = str(user_id)
 
-    if uid not in wallets:
-        wallets[uid] = {
-            "balance": 0,
-            "total_earned": 0
-        }
-
-    wallets[uid]["balance"] += int(amount)
-    wallets[uid]["total_earned"] += int(amount)
+    current = int(wallets.get(uid, 0))
+    wallets[uid] = current + int(amount)
 
     save_json(WALLET_FILE, wallets)
 
 
-def remove_balance(user_id: int, amount: int):
+def remove_balance(user_id: int, amount: int) -> bool:
     wallets = load_json(WALLET_FILE, {})
     uid = str(user_id)
 
-    if uid not in wallets:
+    current = int(wallets.get(uid, 0))
+    if current < amount:
         return False
 
-    if wallets[uid]["balance"] < amount:
-        return False
-
-    wallets[uid]["balance"] -= int(amount)
+    wallets[uid] = current - int(amount)
     save_json(WALLET_FILE, wallets)
     return True
 
 
-def get_balance(user_id: int):
-    wallets = load_json(WALLET_FILE, {})
-    uid = str(user_id)
+# ========================
+# أوامر الأدمن النصية
+# ========================
 
-    if uid not in wallets:
-        return 0
+async def handle_admin_message(bot, message: discord.Message):
+    if message.author.bot:
+        return
 
-    return wallets[uid].get("balance", 0)
+    # تأكد إن اللي بيكلم أدمن
+    if not any(role.id == ADMIN_ROLE_ID for role in message.author.roles):
+        return
 
+    content = message.content.strip().split()
 
-# ===============================
-# Admin Text Commands Handler
-# ===============================
-async def handle_admin_message(bot, message):
-    """
-    دالة وهمية حاليًا علشان main.py ما يكراشش
-    تقدر نضيف فيها أوامر أدمن بعدين (add / remove / reset)
-    """
-    return
+    if not content:
+        return
+
+    cmd = content[0].lower()
+
+    # !add @user amount
+    if cmd == "!add" and len(content) == 3:
+        try:
+            user = message.mentions[0]
+            amount = int(content[2])
+
+            add_balance(user.id, amount)
+            await message.reply(f"✅ تم إضافة **{amount}** نقطة لـ {user.mention}")
+
+        except:
+            await message.reply("❌ الاستخدام الصحيح: `!add @user amount`")
+
+    # !remove @user amount
+    elif cmd == "!remove" and len(content) == 3:
+        try:
+            user = message.mentions[0]
+            amount = int(content[2])
+
+            if remove_balance(user.id, amount):
+                await message.reply(f"🗑️ تم خصم **{amount}** نقطة من {user.mention}")
+            else:
+                await message.reply("❌ الرصيد غير كافي")
+
+        except:
+            await message.reply("❌ الاستخدام الصحيح: `!remove @user amount`")
+
+    # !balance @user
+    elif cmd == "!balance" and len(content) == 2:
+        try:
+            user = message.mentions[0]
+            bal = get_balance(user.id)
+            await message.reply(f"💰 رصيد {user.mention}: **{bal}** نقطة")
+
+        except:
+            await message.reply("❌ الاستخدام الصحيح: `!balance @user`")
