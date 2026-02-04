@@ -1,93 +1,104 @@
 import discord
 from config import ADMIN_ROLE_ID
-from utils.json_db import load_json, save_json
+import json
+import os
+from datetime import datetime
 
 WALLET_FILE = "data/wallets.json"
 
+def load_wallets():
+    if not os.path.exists(WALLET_FILE):
+        return {}
+    with open(WALLET_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-# ========================
-# أدوات مساعدة
-# ========================
+def save_wallets(data):
+    with open(WALLET_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-def get_balance(user_id: int) -> int:
-    wallets = load_json(WALLET_FILE, {})
-    return int(wallets.get(str(user_id), 0))
-
-
-def add_balance(user_id: int, amount: int):
-    wallets = load_json(WALLET_FILE, {})
-    uid = str(user_id)
-
-    current = int(wallets.get(uid, 0))
-    wallets[uid] = current + int(amount)
-
-    save_json(WALLET_FILE, wallets)
-
-
-def remove_balance(user_id: int, amount: int) -> bool:
-    wallets = load_json(WALLET_FILE, {})
-    uid = str(user_id)
-
-    current = int(wallets.get(uid, 0))
-    if current < amount:
-        return False
-
-    wallets[uid] = current - int(amount)
-    save_json(WALLET_FILE, wallets)
-    return True
-
-
-# ========================
-# أوامر الأدمن النصية
-# ========================
-
-async def handle_admin_message(bot, message: discord.Message):
-    if message.author.bot:
+def handle_admin_message(bot, message: discord.Message):
+    if message.author.bot or not message.guild:
         return
 
-    # تأكد إن اللي بيكلم أدمن
-    if not any(role.id == ADMIN_ROLE_ID for role in message.author.roles):
+    # لازم رول أدمن
+    if ADMIN_ROLE_ID not in [r.id for r in message.author.roles]:
         return
 
-    content = message.content.strip().split()
-
-    if not content:
+    args = message.content.strip().split()
+    if not args:
         return
 
-    cmd = content[0].lower()
+    cmd = args[0].lower()
 
-    # !add @user amount
-    if cmd == "!add" and len(content) == 3:
+    # ================== ADD ==================
+    if cmd == "add" and len(args) == 3:
+        if not message.mentions:
+            message.channel.send("❌ منشن المستخدم الأول")
+            return
+
         try:
-            user = message.mentions[0]
-            amount = int(content[2])
-
-            add_balance(user.id, amount)
-            await message.reply(f"✅ تم إضافة **{amount}** نقطة لـ {user.mention}")
-
+            amount = int(args[2])
         except:
-            await message.reply("❌ الاستخدام الصحيح: `!add @user amount`")
+            message.channel.send("❌ المبلغ لازم يكون رقم")
+            return
 
-    # !remove @user amount
-    elif cmd == "!remove" and len(content) == 3:
+        user = message.mentions[0]
+        wallets = load_wallets()
+        uid = str(user.id)
+
+        if uid not in wallets or not isinstance(wallets[uid], dict):
+            wallets[uid] = {
+                "balance": 0,
+                "total_deposit": 0,
+                "total_profit": 0,
+                "total_loss": 0,
+                "last_update": ""
+            }
+
+        wallets[uid]["balance"] += amount
+        wallets[uid]["total_deposit"] += amount
+        wallets[uid]["last_update"] = str(datetime.now())
+
+        save_wallets(wallets)
+
+        message.channel.send(
+            f"✅ تم إضافة **{amount}** نقطة لـ {user.mention}"
+        )
+
+    # ================== REMOVE ==================
+    elif cmd == "remove" and len(args) == 3:
+        if not message.mentions:
+            message.channel.send("❌ منشن المستخدم الأول")
+            return
+
         try:
-            user = message.mentions[0]
-            amount = int(content[2])
-
-            if remove_balance(user.id, amount):
-                await message.reply(f"🗑️ تم خصم **{amount}** نقطة من {user.mention}")
-            else:
-                await message.reply("❌ الرصيد غير كافي")
-
+            amount = int(args[2])
         except:
-            await message.reply("❌ الاستخدام الصحيح: `!remove @user amount`")
+            message.channel.send("❌ المبلغ لازم يكون رقم")
+            return
 
-    # !balance @user
-    elif cmd == "!balance" and len(content) == 2:
-        try:
-            user = message.mentions[0]
-            bal = get_balance(user.id)
-            await message.reply(f"💰 رصيد {user.mention}: **{bal}** نقطة")
+        user = message.mentions[0]
+        wallets = load_wallets()
+        uid = str(user.id)
 
-        except:
-            await message.reply("❌ الاستخدام الصحيح: `!balance @user`")
+        if uid not in wallets:
+            message.channel.send("❌ المستخدم ليس لديه محفظة")
+            return
+
+        wallets[uid]["balance"] = max(0, wallets[uid]["balance"] - amount)
+        wallets[uid]["last_update"] = str(datetime.now())
+
+        save_wallets(wallets)
+
+        message.channel.send(
+            f"🚫 تم خصم **{amount}** نقطة من {user.mention}"
+        )
+
+    # ================== HELP ==================
+    elif cmd == "ahelp":
+        message.channel.send(
+            "**🛠 أوامر الأدمن:**\n"
+            "`add @user amount`\n"
+            "`remove @user amount`\n"
+            "`ahelp`"
+        )
