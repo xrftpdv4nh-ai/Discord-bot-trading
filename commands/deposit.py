@@ -18,7 +18,6 @@ WALLET_FILE = "data/wallets.json"
 
 os.makedirs("data", exist_ok=True)
 
-
 # ================== HELPERS ==================
 def load_json(path, default):
     if not os.path.exists(path):
@@ -38,29 +37,36 @@ def add_balance(user_id: int, amount: int):
     wallets[uid] = wallets.get(uid, 0) + amount
     save_json(WALLET_FILE, wallets)
 
-
 # ================== PAYMENT VIEW ==================
 class PaymentView(View):
-    def __init__(self, interaction, points, req_id):
+    def __init__(self, points, req_id):
         super().__init__(timeout=300)
-        self.interaction = interaction
         self.points = points
         self.req_id = req_id
 
     async def _select(self, interaction: discord.Interaction, method: str):
+        await interaction.response.defer(ephemeral=True)
+
         deposits = load_json(DEPOSIT_FILE, {})
+        if self.req_id not in deposits:
+            return
+
         deposits[self.req_id]["method"] = method
+        deposits[self.req_id]["status"] = "waiting_proof"
         save_json(DEPOSIT_FILE, deposits)
 
-        if method == "Vodafone Cash":
-            text = f"📱 حول **{self.points / 100} جنيه** على:\n`{VODAFONE_NUMBER}`"
-        elif method == "InstaPay":
-            text = f"💳 حول **{self.points / 100} جنيه** على:\n`{INSTAPAY_NUMBER}`"
-        else:
-            text = f"🤖 ابعت **{self.points} نقطة** لـ:\n`{PROBOT_ID}`"
+        amount_egp = self.points / 100
 
-        await interaction.response.edit_message(
-            content=f"{text}\n\n📎 ابعت صورة إثبات التحويل هنا",
+        if method == "Vodafone Cash":
+            text = f"📱 حول **{amount_egp:.2f} جنيه** على:\n`{VODAFONE_NUMBER}`"
+        elif method == "InstaPay":
+            text = f"💳 حول **{amount_egp:.2f} جنيه** على:\n`{INSTAPAY_NUMBER}`"
+        else:
+            text = f"🤖 ابعت **{self.points} نقطة** إلى:\n`{PROBOT_ID}`"
+
+        await interaction.followup.edit_message(
+            message_id=interaction.message.id,
+            content=f"{text}\n\n📎 **ابعت صورة إثبات التحويل هنا**",
             view=None
         )
 
@@ -76,7 +82,6 @@ class PaymentView(View):
     async def probot(self, interaction: discord.Interaction, button: Button):
         await self._select(interaction, "ProBot")
 
-
 # ================== ADMIN VIEW ==================
 class AdminView(View):
     def __init__(self, req_id):
@@ -84,9 +89,11 @@ class AdminView(View):
         self.req_id = req_id
 
     async def _finalize(self, interaction: discord.Interaction, accepted: bool):
+        await interaction.response.defer(ephemeral=True)
+
         deposits = load_json(DEPOSIT_FILE, {})
         if self.req_id not in deposits:
-            await interaction.response.send_message("❌ الطلب غير موجود", ephemeral=True)
+            await interaction.followup.send("❌ الطلب غير موجود")
             return
 
         data = deposits[self.req_id]
@@ -95,21 +102,30 @@ class AdminView(View):
         if accepted:
             add_balance(data["user_id"], data["points"])
             if user:
-                await user.send(f"✅ تم شحن **{data['points']} نقطة** بنجاح")
-            result = "✅ تم قبول الطلب"
+                try:
+                    await user.send(
+                        f"✅ **تم شحن رصيدك بنجاح**\n💎 النقاط: {data['points']}"
+                    )
+                except:
+                    pass
+            result = "✅ تم قبول الطلب وشحن الرصيد"
         else:
             if user:
-                await user.send("❌ تم رفض طلب الشحن")
+                try:
+                    await user.send("❌ **تم رفض طلب الشحن**")
+                except:
+                    pass
             result = "🚫 تم رفض الطلب"
 
         for c in self.children:
             c.disabled = True
 
         await interaction.message.edit(view=self)
-        await interaction.response.send_message(result, ephemeral=True)
 
         del deposits[self.req_id]
         save_json(DEPOSIT_FILE, deposits)
+
+        await interaction.followup.send(result)
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: Button):
@@ -118,7 +134,6 @@ class AdminView(View):
     @discord.ui.button(label="Reject", style=discord.ButtonStyle.danger)
     async def reject(self, interaction: discord.Interaction, button: Button):
         await self._finalize(interaction, False)
-
 
 # ================== SLASH COMMAND ==================
 @app_commands.command(name="deposit", description="شحن رصيد")
@@ -130,32 +145,40 @@ async def deposit(interaction: discord.Interaction, points: int):
     deposits[req_id] = {
         "user_id": interaction.user.id,
         "points": points,
-        "method": None
+        "method": None,
+        "status": "choose_method"
     }
     save_json(DEPOSIT_FILE, deposits)
 
     embed = discord.Embed(
         title="💳 شحن رصيد",
-        description=f"💎 النقاط: **{points}**\nاختر طريقة الدفع:",
+        description=(
+            f"💎 النقاط: **{points}**\n"
+            f"💰 المبلغ: **{points / 100:.2f} جنيه**\n\n"
+            "اختر طريقة الدفع:"
+        ),
         color=0x2ecc71
     )
     embed.set_footer(text=f"ID: {req_id}")
 
     await interaction.response.send_message(
         embed=embed,
-        view=PaymentView(interaction, points, req_id),
+        view=PaymentView(points, req_id),
         ephemeral=True
     )
 
-
 # ================== PROOF HANDLER ==================
 async def handle_proof_message(message: discord.Message):
-    if not message.attachments:
+    if not message.attachments or message.author.bot:
         return
 
     deposits = load_json(DEPOSIT_FILE, {})
+
     for req_id, data in deposits.items():
-        if data["user_id"] == message.author.id and data["method"]:
+        if (
+            data["user_id"] == message.author.id
+            and data.get("status") == "waiting_proof"
+        ):
             file = await message.attachments[0].to_file()
 
             try:
@@ -164,7 +187,7 @@ async def handle_proof_message(message: discord.Message):
                 pass
 
             await message.channel.send(
-                "⏳ تم استلام إثبات التحويل – الطلب تحت المراجعة",
+                "⏳ **تم استلام إثبات التحويل**\nطلبك تحت المراجعة ✅",
                 delete_after=10
             )
 
@@ -176,10 +199,18 @@ async def handle_proof_message(message: discord.Message):
                 title="📥 طلب إيداع جديد",
                 color=0xf1c40f
             )
-            embed.add_field(name="👤 المستخدم", value=message.author.mention)
-            embed.add_field(name="💎 النقاط", value=data["points"])
-            embed.add_field(name="💳 الطريقة", value=data["method"])
+            embed.add_field(name="👤 المستخدم", value=f"<@{data['user_id']}>", inline=False)
+            embed.add_field(name="💎 النقاط", value=data["points"], inline=True)
+            embed.add_field(name="💳 الطريقة", value=data["method"], inline=True)
+            embed.add_field(
+                name="💰 المبلغ",
+                value=f"{data['points'] / 100:.2f} جنيه",
+                inline=False
+            )
             embed.set_footer(text=f"ID: {req_id}")
 
             await ch.send(embed=embed, file=file, view=AdminView(req_id))
+
+            data["status"] = "pending_admin"
+            save_json(DEPOSIT_FILE, deposits)
             return
