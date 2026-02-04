@@ -25,7 +25,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print("🟢 Bot Online")
 
-    # تسجيل View ثابتة (علشان الأزرار تفضل شغالة)
+    # تسجيل الـ View (مهم جدًا للأزرار)
     bot.add_view(DepositView())
 
     bot.tree.clear_commands(guild=None)
@@ -40,12 +40,6 @@ async def on_ready():
     await bot.tree.sync()
     print("✅ Commands Synced")
 
-    try:
-        ch = await bot.fetch_channel(1293008901142351952)
-        await ch.send("✅ TEST MESSAGE FROM BOT")
-    except Exception as e:
-        print("Admin channel test failed:", e)
-
 
 @bot.event
 async def on_message(message):
@@ -54,6 +48,7 @@ async def on_message(message):
 
     await handle_proof_message(message)
     await handle_admin_message(bot, message)
+
     await bot.process_commands(message)
 
 
