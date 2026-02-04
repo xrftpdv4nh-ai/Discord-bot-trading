@@ -3,7 +3,7 @@ import os
 # Discord Bot Token (محطوط في Railway Variables)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-ADMIN_CHANNEL_ID = 123456789012345678
+ADMIN_CHANNEL_ID = 1293008901142351952
 
 # Admin IDs (حط ID حسابك هنا)
 ADMIN_IDS = [
