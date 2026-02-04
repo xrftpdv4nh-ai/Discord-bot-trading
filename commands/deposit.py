@@ -169,48 +169,61 @@ async def deposit(interaction: discord.Interaction, points: int):
 
 # ================== PROOF HANDLER ==================
 async def handle_proof_message(message: discord.Message):
-    if not message.attachments or message.author.bot:
+    if not message.attachments or not message.guild:
         return
 
     deposits = load_json(DEPOSIT_FILE, {})
 
-    for req_id, data in deposits.items():
-        if (
-            data["user_id"] == message.author.id
-            and data.get("status") == "waiting_proof"
-        ):
-            file = await message.attachments[0].to_file()
+    # ناخد آخر طلب للمستخدم
+    user_requests = [
+        (req_id, data)
+        for req_id, data in deposits.items()
+        if data["user_id"] == message.author.id
+    ]
 
-            try:
-                await message.delete()
-            except:
-                pass
+    if not user_requests:
+        return
 
-            await message.channel.send(
-                "⏳ **تم استلام إثبات التحويل**\nطلبك تحت المراجعة ✅",
-                delete_after=10
-            )
+    req_id, data = user_requests[-1]
 
-            ch = message.guild.get_channel(ADMIN_CHANNEL_ID)
-            if not ch:
-                return
+    if not data.get("method"):
+        await message.channel.send(
+            "❌ لازم تختار **طريقة الدفع** الأول",
+            delete_after=8
+        )
+        return
 
-            embed = discord.Embed(
-                title="📥 طلب إيداع جديد",
-                color=0xf1c40f
-            )
-            embed.add_field(name="👤 المستخدم", value=f"<@{data['user_id']}>", inline=False)
-            embed.add_field(name="💎 النقاط", value=data["points"], inline=True)
-            embed.add_field(name="💳 الطريقة", value=data["method"], inline=True)
-            embed.add_field(
-                name="💰 المبلغ",
-                value=f"{data['points'] / 100:.2f} جنيه",
-                inline=False
-            )
-            embed.set_footer(text=f"ID: {req_id}")
+    attachment = message.attachments[0]
+    file = await attachment.to_file()
 
-            await ch.send(embed=embed, file=file, view=AdminView(req_id))
+    # نحاول نمسح الصورة
+    try:
+        await message.delete()
+    except:
+        pass
 
-            data["status"] = "pending_admin"
-            save_json(DEPOSIT_FILE, deposits)
-            return
+    await message.channel.send(
+        "⏳ **تم استلام إثبات التحويل**\n"
+        "طلبك تحت المراجعة 🔍",
+        delete_after=10
+    )
+
+    admin_channel = message.guild.get_channel(ADMIN_CHANNEL_ID)
+    if not admin_channel:
+        print("❌ Admin channel not found")
+        return
+
+    embed = discord.Embed(
+        title="📥 طلب إيداع جديد",
+        color=0xf1c40f
+    )
+    embed.add_field(name="👤 المستخدم", value=message.author.mention, inline=False)
+    embed.add_field(name="💎 النقاط", value=data["points"], inline=True)
+    embed.add_field(name="💳 الطريقة", value=data["method"], inline=True)
+    embed.set_footer(text=f"ID: {req_id}")
+
+    await admin_channel.send(
+        embed=embed,
+        file=file,
+        view=AdminView(req_id)
+    )
