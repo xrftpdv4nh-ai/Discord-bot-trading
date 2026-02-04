@@ -4,6 +4,7 @@ from discord.ui import View, Button
 import uuid
 import json
 import os
+from datetime import datetime
 
 from config import (
     ADMIN_CHANNEL_ID,
@@ -31,10 +32,25 @@ def save_json(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+# ✅✅✅ FIXED add_balance (متوافق مع wallet)
 def add_balance(user_id: int, amount: int):
     wallets = load_json(WALLET_FILE, {})
     uid = str(user_id)
-    wallets[uid] = wallets.get(uid, 0) + amount
+
+    # لو المستخدم مش موجود أو الداتا بايظة
+    if uid not in wallets or not isinstance(wallets[uid], dict):
+        wallets[uid] = {
+            "balance": 0,
+            "total_deposit": 0,
+            "total_profit": 0,
+            "total_loss": 0,
+            "last_update": ""
+        }
+
+    wallets[uid]["balance"] += int(amount)
+    wallets[uid]["total_deposit"] += int(amount)
+    wallets[uid]["last_update"] = str(datetime.now())
+
     save_json(WALLET_FILE, wallets)
 
 # ================== PAYMENT VIEW ==================
@@ -122,7 +138,6 @@ class AdminView(View):
 
             result = "🚫 تم رفض الطلب"
 
-        # تعطيل الأزرار
         for c in self.children:
             c.disabled = True
 
@@ -180,7 +195,6 @@ async def handle_proof_message(message: discord.Message):
 
     deposits = load_json(DEPOSIT_FILE, {})
 
-    # ناخد آخر طلب للمستخدم
     user_requests = [
         (req_id, data)
         for req_id, data in deposits.items()
@@ -199,18 +213,15 @@ async def handle_proof_message(message: discord.Message):
         )
         return
 
-    attachment = message.attachments[0]
-    file = await attachment.to_file()
+    file = await message.attachments[0].to_file()
 
-    # نحاول نمسح الصورة
     try:
         await message.delete()
     except:
         pass
 
     await message.channel.send(
-        "⏳ **تم استلام إثبات التحويل**\n"
-        "طلبك تحت المراجعة 🔍",
+        "⏳ **تم استلام إثبات التحويل**\nطلبك تحت المراجعة 🔍",
         delete_after=10
     )
 
@@ -219,17 +230,10 @@ async def handle_proof_message(message: discord.Message):
         print("❌ Admin channel not found")
         return
 
-    embed = discord.Embed(
-        title="📥 طلب إيداع جديد",
-        color=0xf1c40f
-    )
+    embed = discord.Embed(title="📥 طلب إيداع جديد", color=0xf1c40f)
     embed.add_field(name="👤 المستخدم", value=message.author.mention, inline=False)
     embed.add_field(name="💎 النقاط", value=data["points"], inline=True)
     embed.add_field(name="💳 الطريقة", value=data["method"], inline=True)
     embed.set_footer(text=f"ID: {req_id}")
 
-    await admin_channel.send(
-        embed=embed,
-        file=file,
-        view=AdminView(req_id)
-    )
+    await admin_channel.send(embed=embed, file=file, view=AdminView(req_id))
