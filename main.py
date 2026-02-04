@@ -26,7 +26,7 @@ async def on_ready():
     print("🟢 Bot Online")
 
     # تسجيل الـ View (مهم جدًا للأزرار)
-    bot.add_view(DepositView())
+    
 
     bot.tree.clear_commands(guild=None)
 
