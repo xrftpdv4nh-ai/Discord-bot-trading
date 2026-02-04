@@ -16,7 +16,8 @@ def save_wallets(data):
     with open(WALLET_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-def handle_admin_message(bot, message: discord.Message):
+# ✅ لازم async
+async def handle_admin_message(bot, message: discord.Message):
     if message.author.bot or not message.guild:
         return
 
@@ -33,13 +34,13 @@ def handle_admin_message(bot, message: discord.Message):
     # ================== ADD ==================
     if cmd == "add" and len(args) == 3:
         if not message.mentions:
-            message.channel.send("❌ منشن المستخدم الأول")
+            await message.channel.send("❌ منشن المستخدم الأول")
             return
 
         try:
             amount = int(args[2])
         except:
-            message.channel.send("❌ المبلغ لازم يكون رقم")
+            await message.channel.send("❌ المبلغ لازم يكون رقم")
             return
 
         user = message.mentions[0]
@@ -61,28 +62,28 @@ def handle_admin_message(bot, message: discord.Message):
 
         save_wallets(wallets)
 
-        message.channel.send(
+        await message.channel.send(
             f"✅ تم إضافة **{amount}** نقطة لـ {user.mention}"
         )
 
     # ================== REMOVE ==================
     elif cmd == "remove" and len(args) == 3:
         if not message.mentions:
-            message.channel.send("❌ منشن المستخدم الأول")
+            await message.channel.send("❌ منشن المستخدم الأول")
             return
 
         try:
             amount = int(args[2])
         except:
-            message.channel.send("❌ المبلغ لازم يكون رقم")
+            await message.channel.send("❌ المبلغ لازم يكون رقم")
             return
 
         user = message.mentions[0]
         wallets = load_wallets()
         uid = str(user.id)
 
-        if uid not in wallets:
-            message.channel.send("❌ المستخدم ليس لديه محفظة")
+        if uid not in wallets or not isinstance(wallets[uid], dict):
+            await message.channel.send("❌ المستخدم ليس لديه محفظة")
             return
 
         wallets[uid]["balance"] = max(0, wallets[uid]["balance"] - amount)
@@ -90,13 +91,13 @@ def handle_admin_message(bot, message: discord.Message):
 
         save_wallets(wallets)
 
-        message.channel.send(
+        await message.channel.send(
             f"🚫 تم خصم **{amount}** نقطة من {user.mention}"
         )
 
     # ================== HELP ==================
     elif cmd == "ahelp":
-        message.channel.send(
+        await message.channel.send(
             "**🛠 أوامر الأدمن:**\n"
             "`add @user amount`\n"
             "`remove @user amount`\n"
