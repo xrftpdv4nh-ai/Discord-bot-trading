@@ -3,10 +3,11 @@ from utils.json_db import load_json, save_json
 WALLET_FILE = "data/wallets.json"
 
 
+# ===============================
+# Wallet Functions
+# ===============================
+
 def add_balance(user_id: int, amount: int):
-    """
-    إضافة رصيد (نقاط) للمستخدم
-    """
     wallets = load_json(WALLET_FILE, {})
     uid = str(user_id)
 
@@ -23,9 +24,6 @@ def add_balance(user_id: int, amount: int):
 
 
 def remove_balance(user_id: int, amount: int):
-    """
-    خصم رصيد من المستخدم
-    """
     wallets = load_json(WALLET_FILE, {})
     uid = str(user_id)
 
@@ -41,9 +39,6 @@ def remove_balance(user_id: int, amount: int):
 
 
 def get_balance(user_id: int):
-    """
-    جلب رصيد المستخدم
-    """
     wallets = load_json(WALLET_FILE, {})
     uid = str(user_id)
 
@@ -51,3 +46,14 @@ def get_balance(user_id: int):
         return 0
 
     return wallets[uid].get("balance", 0)
+
+
+# ===============================
+# Admin Text Commands Handler
+# ===============================
+async def handle_admin_message(bot, message):
+    """
+    دالة وهمية حاليًا علشان main.py ما يكراشش
+    تقدر نضيف فيها أوامر أدمن بعدين (add / remove / reset)
+    """
+    return
