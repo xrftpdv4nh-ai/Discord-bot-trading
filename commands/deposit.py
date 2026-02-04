@@ -93,7 +93,7 @@ class AdminView(View):
 
         deposits = load_json(DEPOSIT_FILE, {})
         if self.req_id not in deposits:
-            await interaction.followup.send("❌ الطلب غير موجود")
+            await interaction.followup.send("❌ الطلب غير موجود", ephemeral=True)
             return
 
         data = deposits[self.req_id]
@@ -101,22 +101,28 @@ class AdminView(View):
 
         if accepted:
             add_balance(data["user_id"], data["points"])
+
             if user:
                 try:
                     await user.send(
-                        f"✅ **تم شحن رصيدك بنجاح**\n💎 النقاط: {data['points']}"
+                        f"✅ **تم شحن رصيدك بنجاح**\n"
+                        f"💎 النقاط: {data['points']}"
                     )
                 except:
                     pass
+
             result = "✅ تم قبول الطلب وشحن الرصيد"
+
         else:
             if user:
                 try:
                     await user.send("❌ **تم رفض طلب الشحن**")
                 except:
                     pass
+
             result = "🚫 تم رفض الطلب"
 
+        # تعطيل الأزرار
         for c in self.children:
             c.disabled = True
 
@@ -125,7 +131,7 @@ class AdminView(View):
         del deposits[self.req_id]
         save_json(DEPOSIT_FILE, deposits)
 
-        await interaction.followup.send(result)
+        await interaction.followup.send(result, ephemeral=True)
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: Button):
