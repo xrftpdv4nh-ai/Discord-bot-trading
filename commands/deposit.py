@@ -7,11 +7,12 @@ import os
 from datetime import datetime
 
 from config import (
-    ADMIN_CHANNEL_ID,
+    ADMIN_CHANNEL_ID,   # متساب علشان التوافق
+    LOG_CHANNEL_ID,     # ✅ روم اللوج الموحد
     VODAFONE_NUMBER,
     INSTAPAY_NUMBER,
     PROBOT_ID,
-    DEPOSIT_CHANNEL_ID   # ✅ جديد
+    DEPOSIT_CHANNEL_ID
 )
 
 # ================== FILES ==================
@@ -27,13 +28,11 @@ def load_json(path, default):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-
 def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-
-# ✅ متوافق مع wallet بدون كراش
+# ================== WALLET ==================
 def add_balance(user_id: int, amount: int):
     wallets = load_json(WALLET_FILE, {})
     uid = str(user_id)
@@ -163,10 +162,9 @@ class AdminView(View):
 @app_commands.describe(points="عدد النقاط")
 async def deposit(interaction: discord.Interaction, points: int):
 
-    # ✅ تقييد روم الإيداع فقط
     if interaction.channel.id != DEPOSIT_CHANNEL_ID:
         await interaction.response.send_message(
-            "🚫 **This channel is for deposits only.**\nPlease use the deposit channel.",
+            "🚫 **This channel is for deposits only.**",
             ephemeral=True
         )
         return
@@ -236,7 +234,7 @@ async def handle_proof_message(message: discord.Message):
         delete_after=10
     )
 
-    admin_channel = message.guild.get_channel(ADMIN_CHANNEL_ID)
+    admin_channel = message.guild.get_channel(LOG_CHANNEL_ID)
     if not admin_channel:
         return
 
