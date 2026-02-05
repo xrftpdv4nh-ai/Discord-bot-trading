@@ -110,5 +110,49 @@ async def a_sale(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=arabic_embed())
 
-# Alias to match main.py import
+# Alias to match 
+
+# ===================== MESSAGE HANDLER =====================
+async def handle_roles_message(message: discord.Message):
+    if message.author.bot or not message.guild:
+        return
+
+    content = message.content.lower().strip()
+
+    # a-sale (Arabic)
+    if content == "a-sale":
+        fake_interaction = await _fake_interaction(message)
+        await a_sale(fake_interaction)
+
+    # e-sale (English)
+    elif content == "e-sale":
+        fake_interaction = await _fake_interaction(message)
+        await e_sale(fake_interaction)
+
+
+# ===================== FAKE INTERACTION =====================
+class _FakeResponse:
+    def __init__(self, message):
+        self.message = message
+
+    async def send_message(self, *args, **kwargs):
+        await self.message.channel.send(*args, **kwargs)
+
+
+class _FakeInteraction:
+    def __init__(self, message):
+        self.user = message.author
+        self.guild = message.guild
+        self.channel = message.channel
+        self.response = _FakeResponse(message)
+
+
+async def _fake_interaction(message: discord.Message):
+    return _FakeInteraction(message)
+
+
+# ===================== ALIASES (IMPORTANT) =====================
+# علشان الـ main.py ما يكراش
 handle_sale_message = handle_roles_message
+handle_e_sale_message = handle_roles_message
+handle_a_sale_message = handle_roles_message
