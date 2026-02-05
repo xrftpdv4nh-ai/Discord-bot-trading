@@ -104,30 +104,37 @@ class AdminView(View):
         self.req_id = req_id
 
     async def _finalize(self, interaction: discord.Interaction, accepted: bool):
-        await interaction.response.defer(ephemeral=True)
+        # رد صامت علشان ميبعتش رسالة في روم اللوج
+        try:
+            await interaction.response.defer()
+        except:
+            pass
 
         deposits = load_json(DEPOSIT_FILE, {})
         if self.req_id not in deposits:
-            await interaction.followup.send("❌ الطلب غير موجود", ephemeral=True)
             return
 
         data = deposits[self.req_id]
         user = interaction.client.get_user(data["user_id"])
+
         log_channel = interaction.client.get_channel(LOG_CHANNEL_ID)
 
         if accepted:
+            # إضافة الرصيد
             add_balance(data["user_id"], data["points"])
 
+            # DM للمستخدم
             if user:
                 try:
                     await user.send(
-                        f"✅ **تم قبول طلب الشحن**\n\n"
+                        f"✅ **تم شحن رصيدك بنجاح**\n\n"
                         f"💎 النقاط: **{data['points']}**\n"
                         f"🧾 رقم الطلب: `{self.req_id}`"
                     )
                 except:
                     pass
 
+            # رسالة اللوج
             if log_channel:
                 await log_channel.send(
                     f"✅ **Deposit Accepted**\n"
@@ -137,9 +144,8 @@ class AdminView(View):
                     f"👮 By: {interaction.user.mention}"
                 )
 
-            result = "✅ تم قبول الطلب وشحن الرصيد"
-
         else:
+            # DM للمستخدم
             if user:
                 try:
                     await user.send(
@@ -149,6 +155,7 @@ class AdminView(View):
                 except:
                     pass
 
+            # رسالة اللوج
             if log_channel:
                 await log_channel.send(
                     f"🚫 **Deposit Rejected**\n"
@@ -158,17 +165,15 @@ class AdminView(View):
                     f"👮 By: {interaction.user.mention}"
                 )
 
-            result = "🚫 تم رفض الطلب"
-
+        # تعطيل الأزرار
         for c in self.children:
             c.disabled = True
 
         await interaction.message.edit(view=self)
 
+        # حذف الطلب
         del deposits[self.req_id]
         save_json(DEPOSIT_FILE, deposits)
-
-        await interaction.followup.send(result, ephemeral=True)
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: Button):
@@ -177,7 +182,6 @@ class AdminView(View):
     @discord.ui.button(label="Reject", style=discord.ButtonStyle.danger)
     async def reject(self, interaction: discord.Interaction, button: Button):
         await self._finalize(interaction, False)
-
 # ================== SLASH COMMAND ==================
 @app_commands.command(name="deposit", description="شحن رصيد")
 @app_commands.describe(points="عدد النقاط")
