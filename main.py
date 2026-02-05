@@ -14,8 +14,8 @@ from commands.deposit import deposit  # أمر الديبوزت
 # ===================== Handlers =====================
 from commands.deposit import handle_proof_message
 from admin.wallet_admin import handle_admin_message
-from commands.tickets import handle_ticket_message
-from commands.tickets import handle_call_message
+from commands.tickets import handle_ticket_message, handle_call_message
+
 # أوامر بدون prefix
 from commands.roles_info import handle_roles_message   # a-role / e-role
 from commands.roles_price import handle_sale_message   # a-sale / e-sale
@@ -62,13 +62,13 @@ async def on_ready():
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
-        
+
     # 📢 نداء داخل التكت
-try:
-    await handle_call_message(message)
-except Exception as e:
-    print("❌ handle_call_message error:", e)
-    
+    try:
+        await handle_call_message(message)
+    except Exception as e:
+        print("❌ handle_call_message error:", e)
+
     # 🎫 Tickets System
     try:
         await handle_ticket_message(message, bot)
