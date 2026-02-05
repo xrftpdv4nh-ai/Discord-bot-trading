@@ -7,8 +7,8 @@ import os
 from datetime import datetime
 
 from config import (
-    ADMIN_CHANNEL_ID,   # متساب للتوافق
-    LOG_CHANNEL_ID,     # ✅ روم اللوج الموحد
+    ADMIN_ACTION_CHANNEL_ID,
+    LOG_CHANNEL_ID,
     VODAFONE_NUMBER,
     INSTAPAY_NUMBER,
     PROBOT_ID,
