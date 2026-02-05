@@ -10,7 +10,6 @@ from commands.trade import trade
 from commands.clear import clear
 from commands.wallet import wallet
 from commands.deposit import deposit  # أمر الديبوزت
-from commands.role_subscription import check_roles_task
 
 # ===================== Handlers =====================
 from commands.deposit import handle_proof_message
@@ -20,7 +19,7 @@ from admin.wallet_admin import handle_admin_message
 from commands.roles_info import handle_roles_message   # a-role / e-role
 from commands.roles_price import handle_sale_message   # a-sale / e-sale
 
-# ✅ NEW – متابعة صلاحية الرولات
+# متابعة صلاحية الرولات
 from commands.role_subscription import check_roles_task
 
 # ===================== Intents =====================
@@ -34,10 +33,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print("🟢 Bot Online")
 
-    # ❗ متلغيش أي حاجة – زي ما اتفقنا
+    # ❗ متلغيش أي حاجة
     bot.tree.clear_commands(guild=None)
-    
-bot.loop.create_task(check_roles_task(bot))
 
     bot.tree.add_command(ping)
     bot.tree.add_command(embed)
@@ -49,9 +46,9 @@ bot.loop.create_task(check_roles_task(bot))
     await bot.tree.sync()
     print("✅ Commands Synced")
 
-    # ✅ تشغيل فحص انتهاء الرولات
+    # ✅ تشغيل فحص انتهاء الرولات (صح)
     try:
-        check_roles_task.start(bot)
+        bot.loop.create_task(check_roles_task(bot))
         print("⏳ Role subscription task started")
     except Exception as e:
         print("❌ Role task error:", e)
