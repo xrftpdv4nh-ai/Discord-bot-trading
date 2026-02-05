@@ -56,7 +56,8 @@ async def on_ready():
     except Exception as e:
         print("❌ Role task error:", e)
 
-# ===================== Messages =====================@bot.event
+# ===================== Messages =====================
+@bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
