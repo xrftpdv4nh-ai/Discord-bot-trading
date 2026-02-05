@@ -48,10 +48,7 @@ class TicketPanelView(View):
 
         embed = discord.Embed(
             title="🎫 Support Ticket",
-            description=(
-                "مرحبًا بك 👋\n\n"
-                "**من فضلك اختر نوع مشكلتك من الأزرار بالأسفل**"
-            ),
+            description="**من فضلك اختر نوع مشكلتك من الأزرار بالأسفل**",
             color=0x2ecc71
         )
 
@@ -91,7 +88,7 @@ class IssueSelectView(View):
         await interaction.channel.send(
             content=f"<@&{SUPPORT_ROLE_ID}>",
             embed=embed,
-            view=SupportControlsView()
+            view=SupportControlsView(self.user)
         )
 
     @discord.ui.button(label="💰 Deposit", style=discord.ButtonStyle.secondary)
@@ -108,9 +105,10 @@ class IssueSelectView(View):
 
 # ===================== SUPPORT CONTROLS =====================
 class SupportControlsView(View):
-    def __init__(self):
+    def __init__(self, ticket_owner: discord.Member):
         super().__init__(timeout=None)
         self.claimed_by = None
+        self.ticket_owner = ticket_owner
 
     @discord.ui.button(label="🟢 Take Ticket", style=discord.ButtonStyle.success)
     async def take(self, interaction: discord.Interaction, button: Button):
@@ -147,6 +145,40 @@ class SupportControlsView(View):
         await discord.utils.sleep_until(datetime.utcnow())
         await channel.delete()
 
+# ===================== CALL COMMAND =====================
+async def handle_call_message(message: discord.Message):
+    if message.author.bot or not message.guild:
+        return
+
+    if message.content.lower() != "نداء":
+        return
+
+    # لازم رول Support
+    if SUPPORT_ROLE_ID not in [r.id for r in message.author.roles]:
+        return
+
+    channel = message.channel
+    if not channel.topic:
+        return
+
+    try:
+        user_id = int(channel.topic)
+    except:
+        return
+
+    member = message.guild.get_member(user_id)
+    if not member:
+        return
+
+    try:
+        await member.send(
+            f"📢 **تم نداءك من الدعم**\n"
+            f"🔗 التكت الخاص بك: {channel.mention}"
+        )
+        await message.channel.send("✅ تم إرسال النداء للمستخدم")
+    except:
+        await message.channel.send("❌ لا يمكن إرسال رسالة خاصة للمستخدم")
+
 # ===================== MESSAGE HANDLER =====================
 async def handle_ticket_message(message: discord.Message, bot):
     if message.author.bot or not message.guild:
@@ -159,4 +191,3 @@ async def handle_ticket_message(message: discord.Message, bot):
             color=0x5865F2
         )
         await message.channel.send(embed=embed, view=TicketPanelView())
-        await message.delete()
