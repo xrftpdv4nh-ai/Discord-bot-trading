@@ -1,184 +1,162 @@
 import discord
 from discord.ui import View, Button
 from datetime import datetime
-from config import (
-    SUPPORT_ROLE_ID,
-    LOG_CHANNEL_ID
-)
+from config import SUPPORT_ROLE_ID, LOG_CHANNEL_ID
 
-# ===================== SETTINGS =====================
 TICKET_CATEGORY_ID = 1291949244541960245
 
-# ===================== HELPERS =====================
-def has_support_role(member: discord.Member) -> bool:
-    return any(role.id == SUPPORT_ROLE_ID for role in member.roles)
+# ===================== UTILS =====================
+async def create_transcript(channel: discord.TextChannel):
+    messages = []
+    async for msg in channel.history(limit=None, oldest_first=True):
+        time = msg.created_at.strftime("%Y-%m-%d %H:%M")
+        author = f"{msg.author} ({msg.author.id})"
+        content = msg.content if msg.content else ""
+        messages.append(f"[{time}] {author}: {content}")
 
-# ===================== TICKET PANEL VIEW =====================
+    return "\n".join(messages) if messages else "No messages."
+
+# ===================== TICKET PANEL =====================
 class TicketPanelView(View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="🎫 Open Ticket", style=discord.ButtonStyle.success)
-    async def open_ticket(self, interaction: discord.Interaction, button: Button):
+    @discord.ui.button(label="📩 Create Ticket", style=discord.ButtonStyle.primary)
+    async def create_ticket(self, interaction: discord.Interaction, button: Button):
         guild = interaction.guild
+        member = interaction.user
         category = guild.get_channel(TICKET_CATEGORY_ID)
 
-        if not category:
-            await interaction.response.send_message(
-                "❌ Ticket category not found.",
-                ephemeral=True
-            )
-            return
+        for ch in category.channels:
+            if ch.topic == str(member.id):
+                return await interaction.response.send_message(
+                    f"❌ لديك تكت مفتوح بالفعل: {ch.mention}", ephemeral=True
+                )
 
-        # إنشاء روم التكت
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            member: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+            guild.get_role(SUPPORT_ROLE_ID): discord.PermissionOverwrite(view_channel=True)
+        }
+
         channel = await guild.create_text_channel(
-            name=f"ticket-{interaction.user.name}",
+            name=f"ticket-{member.name}",
             category=category,
-            overwrites={
-                guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                interaction.user: discord.PermissionOverwrite(
-                    view_channel=True,
-                    send_messages=True,
-                    read_message_history=True
-                ),
-                guild.get_role(SUPPORT_ROLE_ID): discord.PermissionOverwrite(
-                    view_channel=True,
-                    send_messages=True,
-                    read_message_history=True
-                ),
-            }
+            topic=str(member.id),
+            overwrites=overwrites
         )
 
         embed = discord.Embed(
-            title="🎟 Support Ticket",
+            title="🎫 Support Ticket",
             description=(
-                "**Welcome to your support ticket.**\n\n"
-                "Please choose the category that best describes your issue.\n"
-                "Our support team will assist you as soon as possible."
+                "مرحبًا بك 👋\n\n"
+                "**من فضلك اختر نوع مشكلتك من الأزرار بالأسفل**"
+            ),
+            color=0x2ecc71
+        )
+
+        await channel.send(
+            content=f"<@&{SUPPORT_ROLE_ID}>",
+            embed=embed,
+            view=IssueSelectView(member)
+        )
+
+        await interaction.response.send_message(
+            f"✅ تم فتح تكتك: {channel.mention}", ephemeral=True
+        )
+
+# ===================== ISSUE SELECTION =====================
+class IssueSelectView(View):
+    def __init__(self, user):
+        super().__init__(timeout=None)
+        self.user = user
+
+    async def _select(self, interaction, issue):
+        if interaction.user != self.user:
+            return await interaction.response.send_message(
+                "❌ هذا التكت ليس لك", ephemeral=True
+            )
+
+        await interaction.message.delete()
+
+        embed = discord.Embed(
+            title="✅ Ticket Created",
+            description=(
+                f"**نوع المشكلة:** `{issue}`\n\n"
+                "🕒 سيتم الرد عليك من الدعم في أقرب وقت."
             ),
             color=0x3498db
         )
-        embed.set_footer(text="Trono Bot • Support System")
 
-        await channel.send(
-            content=f"{interaction.user.mention} <@&{SUPPORT_ROLE_ID}>",
+        await interaction.channel.send(
+            content=f"<@&{SUPPORT_ROLE_ID}>",
             embed=embed,
-            view=TicketOptionsView(interaction.user)
+            view=SupportControlsView()
         )
 
-        await interaction.response.send_message(
-            f"✅ Your ticket has been created: {channel.mention}",
-            ephemeral=True
-        )
+    @discord.ui.button(label="💰 Deposit", style=discord.ButtonStyle.secondary)
+    async def deposit(self, i, b): await self._select(i, "Deposit")
 
-# ===================== TICKET OPTIONS =====================
-class TicketOptionsView(View):
-    def __init__(self, owner: discord.Member):
-        super().__init__(timeout=None)
-        self.owner = owner
+    @discord.ui.button(label="📈 Trading", style=discord.ButtonStyle.secondary)
+    async def trading(self, i, b): await self._select(i, "Trading")
 
-    @discord.ui.button(label="💳 Deposit", style=discord.ButtonStyle.primary)
-    async def deposit(self, interaction: discord.Interaction, button: Button):
-        await self._select(interaction, "Deposit")
+    @discord.ui.button(label="🎖 Roles", style=discord.ButtonStyle.secondary)
+    async def roles(self, i, b): await self._select(i, "Roles")
 
-    @discord.ui.button(label="📊 Trade", style=discord.ButtonStyle.secondary)
-    async def trade(self, interaction: discord.Interaction, button: Button):
-        await self._select(interaction, "Trade")
-
-    @discord.ui.button(label="🎭 Roles", style=discord.ButtonStyle.success)
-    async def roles(self, interaction: discord.Interaction, button: Button):
-        await self._select(interaction, "Roles / Subscription")
-
-    @discord.ui.button(label="❓ Other", style=discord.ButtonStyle.danger)
-    async def other(self, interaction: discord.Interaction, button: Button):
-        await self._select(interaction, "Other")
-
-    async def _select(self, interaction: discord.Interaction, reason: str):
-        if interaction.user != self.owner:
-            await interaction.response.send_message(
-                "❌ This is not your ticket.",
-                ephemeral=True
-            )
-            return
-
-        await interaction.response.send_message(
-            f"✅ **Ticket Category:** `{reason}`\n"
-            "Please describe your issue clearly.\n"
-            "A support member will respond shortly.",
-            ephemeral=False
-        )
+    @discord.ui.button(label="❓ Other", style=discord.ButtonStyle.secondary)
+    async def other(self, i, b): await self._select(i, "Other")
 
 # ===================== SUPPORT CONTROLS =====================
-class SupportControlView(View):
+class SupportControlsView(View):
     def __init__(self):
         super().__init__(timeout=None)
+        self.claimed_by = None
 
-    @discord.ui.button(label="🧑‍💼 Take Ticket", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="🟢 Take Ticket", style=discord.ButtonStyle.success)
     async def take(self, interaction: discord.Interaction, button: Button):
-        if not has_support_role(interaction.user):
-            await interaction.response.send_message(
-                "❌ Support only.",
-                ephemeral=True
-            )
-            return
+        if SUPPORT_ROLE_ID not in [r.id for r in interaction.user.roles]:
+            return await interaction.response.send_message("❌ Support only", ephemeral=True)
 
-        await interaction.channel.edit(
-            name=f"taken-{interaction.user.name}"
-        )
+        self.claimed_by = interaction.user
+        await interaction.channel.send(f"🟢 **Ticket taken by:** {interaction.user.mention}")
+        button.disabled = True
+        await interaction.message.edit(view=self)
 
-        await interaction.response.send_message(
-            f"✅ Ticket taken by {interaction.user.mention}"
-        )
-
-    @discord.ui.button(label="🔒 Close Ticket", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🔴 Close Ticket", style=discord.ButtonStyle.danger)
     async def close(self, interaction: discord.Interaction, button: Button):
-        if not has_support_role(interaction.user):
-            await interaction.response.send_message(
-                "❌ Support only.",
-                ephemeral=True
-            )
-            return
+        if SUPPORT_ROLE_ID not in [r.id for r in interaction.user.roles]:
+            return await interaction.response.send_message("❌ Support only", ephemeral=True)
 
-        log = interaction.client.get_channel(LOG_CHANNEL_ID)
+        channel = interaction.channel
+        transcript = await create_transcript(channel)
 
+        log = interaction.guild.get_channel(LOG_CHANNEL_ID)
         if log:
-            await log.send(
-                f"🔒 **Ticket Closed**\n"
-                f"📍 Channel: `{interaction.channel.name}`\n"
-                f"👮 Closed by: {interaction.user.mention}\n"
-                f"📅 Time: `{datetime.utcnow().strftime('%Y-%m-%d %H:%M')}`"
+            embed = discord.Embed(
+                title="📁 Ticket Closed",
+                description=(
+                    f"📌 Channel: `{channel.name}`\n"
+                    f"👮 Closed by: {interaction.user.mention}"
+                ),
+                color=0xe74c3c
             )
+            await log.send(embed=embed)
+            await log.send(f"```{transcript[:3900]}```")
 
-        await interaction.response.send_message(
-            "⏳ Closing ticket in 10 seconds..."
-        )
-
-        await interaction.channel.delete(delay=10)
+        await channel.send("⛔ سيتم حذف التكت خلال 10 ثواني")
+        await discord.utils.sleep_until(datetime.utcnow())
+        await channel.delete()
 
 # ===================== MESSAGE HANDLER =====================
 async def handle_ticket_message(message: discord.Message, bot):
     if message.author.bot or not message.guild:
         return
 
-    # أمر إنشاء بانل التكت
-    if message.content.lower().strip() == "ticket-panel":
-        if not has_support_role(message.author):
-            return
-
+    if message.content.lower() == "ticket-panel":
         embed = discord.Embed(
             title="🎫 Support Tickets",
-            description=(
-                "Need help?\n"
-                "Click the button below to open a support ticket.\n\n"
-                "Our team is ready to assist you."
-            ),
-            color=0x2ecc71
+            description="اضغط على الزر بالأسفل لفتح تكت دعم",
+            color=0x5865F2
         )
-        embed.set_footer(text="Trono Bot • Ticket System")
-
-        await message.channel.send(
-            embed=embed,
-            view=TicketPanelView()
-        )
-
+        await message.channel.send(embed=embed, view=TicketPanelView())
         await message.delete()
