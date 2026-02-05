@@ -19,6 +19,9 @@ from admin.wallet_admin import handle_admin_message
 from commands.roles_info import handle_roles_message   # a-role / e-role
 from commands.roles_price import handle_sale_message   # a-sale / e-sale
 
+# 🆕 أوامر إعطاء / سحب الرول
+from commands.admin_role_commands import handle_admin_role_message
+
 # متابعة صلاحية الرولات
 from commands.role_subscription import check_roles_task
 
@@ -46,7 +49,7 @@ async def on_ready():
     await bot.tree.sync()
     print("✅ Commands Synced")
 
-    # ✅ تشغيل فحص انتهاء الرولات (صح)
+    # ✅ تشغيل فحص انتهاء الرولات
     try:
         bot.loop.create_task(check_roles_task(bot))
         print("⏳ Role subscription task started")
@@ -82,6 +85,12 @@ async def on_message(message: discord.Message):
         await handle_admin_message(bot, message)
     except Exception as e:
         print("❌ handle_admin_message error:", e)
+
+    # 5️⃣ أوامر إعطاء / سحب الرول (NEW)
+    try:
+        await handle_admin_role_message(bot, message)
+    except Exception as e:
+        print("❌ handle_admin_role_message error:", e)
 
     await bot.process_commands(message)
 
