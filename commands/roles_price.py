@@ -1,7 +1,7 @@
 import discord
 from config import SUPPORT_ROLE_ID
 
-# ===================== IDs =====================
+# ===================== ROLE IDs =====================
 PRO_ROLE_ID = 1467922966485668118
 VIP_ROLE_ID = 1467923207389712556
 
@@ -9,7 +9,7 @@ PRICE_IMAGE = "https://media.discordapp.net/attachments/1293146258516607008/1468
 
 # ===================== CHECK =====================
 def has_support_role(member: discord.Member) -> bool:
-    return SUPPORT_ROLE_ID in [r.id for r in member.roles]
+    return any(role.id == SUPPORT_ROLE_ID for role in member.roles)
 
 # ===================== HANDLER =====================
 async def handle_sale_message(message: discord.Message):
@@ -18,62 +18,81 @@ async def handle_sale_message(message: discord.Message):
 
     content = message.content.lower().strip()
 
-    # صلاحية الرول
+    # Support only
     if not has_support_role(message.author):
         return
 
     # ===================== ENGLISH =====================
     if content == "e-sale":
         embed = discord.Embed(
-            title="💎 Trono Bot – Premium Roles",
+            title="💎 Trono Bot – Premium Role Pricing",
             description=(
-                "**Upgrade your experience with Trono Bot premium roles.**\n\n"
-                "**🟦 PRO Role (7 Days)**\n"
+                "**Unlock the full power of Trono Bot with premium roles.**\n"
+                "Designed for serious traders who want higher limits,\n"
+                "better profits, and priority handling.\n\n"
+
+                f"🟦 **<@&{PRO_ROLE_ID}> — PRO Role (7 Days)**\n"
                 "• Weekly subscription\n"
-                "• Priority support\n"
-                "• Advanced trading features\n"
-                "• Faster request handling\n\n"
+                "• Increased trading limits\n"
+                "• Higher daily trade count\n"
+                "• Improved profit rates\n"
+                "• Priority support\n\n"
                 "**💰 Price:**\n"
                 "• 40 EGP (Vodafone / InstaPay)\n"
                 "• 100,000 ProBot credits\n\n"
                 "────────────────────\n\n"
-                "**🟪 VIP Role (7 Days)**\n"
+                f"🟪 **<@&{VIP_ROLE_ID}> — VIP Role (7 Days)**\n"
                 "• Weekly subscription\n"
-                "• Highest priority support\n"
-                "• Full trading access\n"
-                "• Exclusive VIP features\n\n"
+                "• Maximum trading limits\n"
+                "• Highest profit rates\n"
+                "• Maximum daily trades\n"
+                "• Fastest request & deposit handling\n"
+                "• Full priority support\n\n"
                 "**💰 Price:**\n"
                 "• 80 EGP (Vodafone / InstaPay)\n"
                 "• 220,000 ProBot credits\n\n"
-                "_Contact support to subscribe._"
+                "_Contact support to activate your role._"
             ),
             color=0x9b59b6
         )
+
         embed.set_image(url=PRICE_IMAGE)
-        embed.set_footer(text="Trono Bot • Premium System")
+        embed.set_footer(text="Trono Bot • Premium Trading System")
 
         await message.channel.send(embed=embed)
+
+        # 🧹 delete user message
+        try:
+            await message.delete()
+        except:
+            pass
 
     # ===================== ARABIC =====================
     elif content == "a-sale":
         embed = discord.Embed(
-            title="💎 Trono Bot – الرولات المميزة",
+            title="💎 Trono Bot – أسعار الرولات المميزة",
             description=(
-                "**طوّر تجربتك داخل السيرفر مع رولات Trono Bot المدفوعة.**\n\n"
-                "**🟦 رول PRO (لمدة 7 أيام)**\n"
+                "**فعّل أقوى مميزات Trono Bot مع الرولات المدفوعة.**\n"
+                "مخصصة للمتداولين الجادين الباحثين عن\n"
+                "حدود أعلى وأرباح أفضل وسرعة تنفيذ.\n\n"
+
+                f"🟦 **<@&{PRO_ROLE_ID}> — رول PRO (7 أيام)**\n"
                 "• اشتراك أسبوعي\n"
-                "• دعم فني أسرع\n"
-                "• مميزات تداول متقدمة\n"
-                "• أولوية في تنفيذ الطلبات\n\n"
+                "• زيادة حدود التداول\n"
+                "• عدد صفقات يومية أكبر\n"
+                "• نسبة أرباح أفضل\n"
+                "• أولوية في الدعم الفني\n\n"
                 "**💰 السعر:**\n"
                 "• 40 جنيه (فودافون / إنستاباي)\n"
                 "• 100,000 نقطة ProBot\n\n"
                 "────────────────────\n\n"
-                "**🟪 رول VIP (لمدة 7 أيام)**\n"
+                f"🟪 **<@&{VIP_ROLE_ID}> — رول VIP (7 أيام)**\n"
                 "• اشتراك أسبوعي\n"
-                "• أعلى أولوية دعم\n"
-                "• وصول كامل للتداول\n"
-                "• مميزات VIP حصرية\n\n"
+                "• أعلى حد تداول في السيرفر\n"
+                "• أعلى نسبة أرباح\n"
+                "• أكبر عدد صفقات يومية\n"
+                "• أسرع تنفيذ للطلبات والشحن\n"
+                "• دعم فني بأولوية قصوى\n\n"
                 "**💰 السعر:**\n"
                 "• 80 جنيه (فودافون / إنستاباي)\n"
                 "• 220,000 نقطة ProBot\n\n"
@@ -81,7 +100,14 @@ async def handle_sale_message(message: discord.Message):
             ),
             color=0xf1c40f
         )
+
         embed.set_image(url=PRICE_IMAGE)
-        embed.set_footer(text="Trono Bot • نظام الرولات")
+        embed.set_footer(text="Trono Bot • نظام الرولات المميزة")
 
         await message.channel.send(embed=embed)
+
+        # 🧹 delete user message
+        try:
+            await message.delete()
+        except:
+            pass
