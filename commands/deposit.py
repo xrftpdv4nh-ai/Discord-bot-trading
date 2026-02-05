@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 
 from config import (
-    ADMIN_CHANNEL_ID,   # متساب علشان التوافق
+    ADMIN_CHANNEL_ID,   # متساب للتوافق
     LOG_CHANNEL_ID,     # ✅ روم اللوج الموحد
     VODAFONE_NUMBER,
     INSTAPAY_NUMBER,
@@ -113,6 +113,7 @@ class AdminView(View):
 
         data = deposits[self.req_id]
         user = interaction.client.get_user(data["user_id"])
+        log_channel = interaction.client.get_channel(LOG_CHANNEL_ID)
 
         if accepted:
             add_balance(data["user_id"], data["points"])
@@ -120,14 +121,24 @@ class AdminView(View):
             if user:
                 try:
                     await user.send(
-                        f"✅ **تم شحن رصيدك بنجاح**\n\n"
+                        f"✅ **تم قبول طلب الشحن**\n\n"
                         f"💎 النقاط: **{data['points']}**\n"
                         f"🧾 رقم الطلب: `{self.req_id}`"
                     )
                 except:
                     pass
 
+            if log_channel:
+                await log_channel.send(
+                    f"✅ **Deposit Accepted**\n"
+                    f"👤 User: <@{data['user_id']}>\n"
+                    f"💎 Points: **{data['points']}**\n"
+                    f"🧾 Order ID: `{self.req_id}`\n"
+                    f"👮 By: {interaction.user.mention}"
+                )
+
             result = "✅ تم قبول الطلب وشحن الرصيد"
+
         else:
             if user:
                 try:
@@ -138,12 +149,22 @@ class AdminView(View):
                 except:
                     pass
 
+            if log_channel:
+                await log_channel.send(
+                    f"🚫 **Deposit Rejected**\n"
+                    f"👤 User: <@{data['user_id']}>\n"
+                    f"💎 Points: **{data['points']}**\n"
+                    f"🧾 Order ID: `{self.req_id}`\n"
+                    f"👮 By: {interaction.user.mention}"
+                )
+
             result = "🚫 تم رفض الطلب"
 
         for c in self.children:
             c.disabled = True
 
         await interaction.message.edit(view=self)
+
         del deposits[self.req_id]
         save_json(DEPOSIT_FILE, deposits)
 
@@ -203,7 +224,6 @@ async def handle_proof_message(message: discord.Message):
         return
 
     deposits = load_json(DEPOSIT_FILE, {})
-
     user_requests = [
         (req_id, data)
         for req_id, data in deposits.items()
