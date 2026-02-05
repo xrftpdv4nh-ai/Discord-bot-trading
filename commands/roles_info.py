@@ -28,8 +28,8 @@ async def handle_roles_message(message: discord.Message):
             title="💎 Premium Trading Roles",
             description=(
                 "**Upgrade your trading experience and unlock advanced features.**\n\n"
-                "Our premium roles are built for traders who want better limits,\n"
-                "higher profits, and a professional trading environment.\n\n"
+                "Our premium roles are designed for serious traders who want\n"
+                "higher limits, stronger profits, and faster performance.\n\n"
 
                 "**Available Roles:**\n"
                 f"🔹 <@&{PRO_ROLE_ID}> — **PRO Trader**\n"
@@ -38,20 +38,20 @@ async def handle_roles_message(message: discord.Message):
                 "**PRO Role Benefits:**\n"
                 "• Higher trading limits\n"
                 "• More daily trades\n"
-                "• Better profit percentage\n"
+                "• Improved profit rates\n"
                 "• Faster deposit review\n"
                 "• Priority support\n\n"
 
                 "**VIP Role Benefits:**\n"
                 "• Maximum trading limits\n"
-                "• Highest profit percentage\n"
+                "• Highest profit rates\n"
                 "• Maximum daily trades\n"
                 "• Fastest deposit approval\n"
                 "• Full priority support\n"
                 "• Exclusive trading advantages\n\n"
 
                 "**Important Notice:**\n"
-                "Any abuse, rule violation, or system exploitation\n"
+                "Any abuse, rule violations, or system exploitation\n"
                 "may result in permanent role removal."
             ),
             color=0x2ecc71
@@ -62,14 +62,20 @@ async def handle_roles_message(message: discord.Message):
 
         await message.channel.send(embed=embed)
 
+        # 🧹 حذف رسالة المستخدم
+        try:
+            await message.delete()
+        except:
+            pass
+
     # ================== ARABIC ==================
     elif cmd == "a-role":
         embed = discord.Embed(
             title="💎 رولات التداول المميزة",
             description=(
-                "**ارتقِ بتجربة التداول الخاصة بك وافتح مميزات أقوى.**\n\n"
+                "**ارتقِ بتجربة التداول وافتح مميزات أقوى.**\n\n"
                 "الرولات المميزة مخصصة للمتداولين الجادين\n"
-                "الذين يبحثون عن حدود أعلى وأرباح أفضل وسرعة أكبر.\n\n"
+                "الذين يبحثون عن حدود أعلى وأرباح أفضل وسرعة تنفيذ.\n\n"
 
                 "**الرولات المتاحة:**\n"
                 f"🔹 <@&{PRO_ROLE_ID}> — **PRO**\n"
@@ -87,11 +93,11 @@ async def handle_roles_message(message: discord.Message):
                 "• أعلى نسبة أرباح\n"
                 "• أكبر عدد صفقات يومية\n"
                 "• أسرع قبول للشحن\n"
-                "• دعم فني كامل بأولوية قصوى\n"
+                "• دعم فني بأولوية قصوى\n"
                 "• مميزات تداول حصرية\n\n"
 
                 "**تنبيه مهم:**\n"
-                "إساءة استخدام النظام أو مخالفة قوانين السيرفر\n"
+                "إساءة استخدام النظام أو مخالفة القوانين\n"
                 "قد تؤدي إلى سحب الرول نهائيًا."
             ),
             color=0xf1c40f
@@ -101,3 +107,9 @@ async def handle_roles_message(message: discord.Message):
         embed.set_footer(text="تداول بذكاء • تداول بأمان • تداول باحتراف")
 
         await message.channel.send(embed=embed)
+
+        # 🧹 حذف رسالة المستخدم
+        try:
+            await message.delete()
+        except:
+            pass
