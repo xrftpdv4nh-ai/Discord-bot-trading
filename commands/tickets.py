@@ -1,4 +1,5 @@
 import discord
+import asyncio
 from discord.ui import View, Button
 from datetime import datetime
 from config import SUPPORT_ROLE_ID, LOG_CHANNEL_ID
@@ -142,7 +143,7 @@ class SupportControlsView(View):
             await log.send(f"```{transcript[:3900]}```")
 
         await channel.send("⛔ سيتم حذف التكت خلال 10 ثواني")
-        await discord.utils.sleep_until(datetime.utcnow())
+        await asyncio.sleep(10)
         await channel.delete()
 
 # ===================== CALL COMMAND =====================
@@ -153,8 +154,8 @@ async def handle_call_message(message: discord.Message):
     if message.content.lower() != "نداء":
         return
 
-    # لازم رول Support
     if SUPPORT_ROLE_ID not in [r.id for r in message.author.roles]:
+        await message.channel.send("❌ هذا الأمر مخصص لفريق الدعم فقط")
         return
 
     channel = message.channel
