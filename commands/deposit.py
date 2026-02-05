@@ -258,7 +258,7 @@ async def handle_proof_message(message: discord.Message):
         delete_after=10
     )
 
-    admin_channel = message.guild.get_channel(LOG_CHANNEL_ID)
+    admin_channel = message.guild.get_channel(ADMIN_ACTION_CHANNEL_ID)
     if not admin_channel:
         return
 
