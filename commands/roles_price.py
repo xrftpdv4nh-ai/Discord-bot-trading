@@ -109,3 +109,6 @@ async def a_sale(interaction: discord.Interaction):
         return
 
     await interaction.response.send_message(embed=arabic_embed())
+
+# Alias to match main.py import
+handle_sale_message = handle_roles_message
