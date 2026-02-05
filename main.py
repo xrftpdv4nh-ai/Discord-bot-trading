@@ -3,7 +3,7 @@ from discord.ext import commands
 
 from config import BOT_TOKEN
 
-# Slash Commands
+# ===================== Slash Commands =====================
 from commands.ping import ping
 from commands.embed import embed
 from commands.trade import trade
@@ -11,10 +11,14 @@ from commands.clear import clear
 from commands.wallet import wallet
 from commands.deposit import deposit  # ✅ أمر الديبوزت فقط
 
-# Handlers
+# ===================== Handlers =====================
 from commands.deposit import handle_proof_message
 from admin.wallet_admin import handle_admin_message
-from commands.roles_info import handle_roles_message  # ✅ NEW (a-role / e-role)
+from commands.roles_price import (
+    handle_roles_message,   # a-role / e-role (القديم)
+    handle_sale_message,    # a-sale (جديد)
+    handle_e_sale_message   # e-sale (جديد)
+)
 
 # ===================== Intents =====================
 intents = discord.Intents.default()
@@ -27,7 +31,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print("🟢 Bot Online")
 
-    # ❗ متعملش clear إلا مرة واحدة
+    # ❗ زي ما هو – من غير ما نلغي حاجة
     bot.tree.clear_commands(guild=None)
 
     bot.tree.add_command(ping)
@@ -46,19 +50,31 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
-    # 1️⃣ أوامر الرولات (a-role / e-role)
+    # 1️⃣ a-role / e-role (القديم)
     try:
         await handle_roles_message(message)
     except Exception as e:
         print("❌ handle_roles_message error:", e)
 
-    # 2️⃣ إثباتات التحويل
+    # 2️⃣ a-sale (أمر نصي بدون prefix)
+    try:
+        await handle_sale_message(message)
+    except Exception as e:
+        print("❌ handle_sale_message error:", e)
+
+    # 3️⃣ e-sale (أمر نصي بدون prefix)
+    try:
+        await handle_e_sale_message(message)
+    except Exception as e:
+        print("❌ handle_e_sale_message error:", e)
+
+    # 4️⃣ إثباتات التحويل
     try:
         await handle_proof_message(message)
     except Exception as e:
         print("❌ handle_proof_message error:", e)
 
-    # 3️⃣ أوامر الأدمن (add / remove)
+    # 5️⃣ أوامر الأدمن (add / remove)
     try:
         await handle_admin_message(bot, message)
     except Exception as e:
