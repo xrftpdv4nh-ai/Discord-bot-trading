@@ -10,6 +10,7 @@ from commands.trade import trade
 from commands.clear import clear
 from commands.wallet import wallet
 from commands.deposit import deposit  # أمر الديبوزت
+from commands.role_subscription import check_roles_task
 
 # ===================== Handlers =====================
 from commands.deposit import handle_proof_message
@@ -35,6 +36,8 @@ async def on_ready():
 
     # ❗ متلغيش أي حاجة – زي ما اتفقنا
     bot.tree.clear_commands(guild=None)
+    
+bot.loop.create_task(check_roles_task(bot))
 
     bot.tree.add_command(ping)
     bot.tree.add_command(embed)
