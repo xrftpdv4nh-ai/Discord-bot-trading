@@ -9,12 +9,15 @@ from commands.embed import embed
 from commands.trade import trade
 from commands.clear import clear
 from commands.wallet import wallet
-from commands.deposit import deposit  # ✅ أمر الديبوزت فقط
+from commands.deposit import deposit  # أمر الديبوزت
 
 # ===================== Handlers =====================
 from commands.deposit import handle_proof_message
 from admin.wallet_admin import handle_admin_message
-from commands.roles_price import handle_sale_message  # ✅ a-sale / e-sale
+
+# أوامر بدون prefix
+from commands.roles_info import handle_roles_message   # a-role / e-role
+from commands.roles_price import handle_sale_message   # a-sale / e-sale
 
 # ===================== Intents =====================
 intents = discord.Intents.default()
@@ -27,7 +30,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print("🟢 Bot Online")
 
-    # ❗ زي ما هو – من غير ما نلغي حاجة
+    # ❗ متلغيش أي حاجة – زي ما اتفقنا
     bot.tree.clear_commands(guild=None)
 
     bot.tree.add_command(ping)
@@ -46,19 +49,25 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
-    # 1️⃣ a-sale / e-sale (بدون prefix)
+    # 1️⃣ a-role / e-role
+    try:
+        await handle_roles_message(message)
+    except Exception as e:
+        print("❌ handle_roles_message error:", e)
+
+    # 2️⃣ a-sale / e-sale
     try:
         await handle_sale_message(message)
     except Exception as e:
         print("❌ handle_sale_message error:", e)
 
-    # 2️⃣ إثباتات التحويل
+    # 3️⃣ إثباتات التحويل
     try:
         await handle_proof_message(message)
     except Exception as e:
         print("❌ handle_proof_message error:", e)
 
-    # 3️⃣ أوامر الأدمن (add / remove)
+    # 4️⃣ أوامر الأدمن (add / remove)
     try:
         await handle_admin_message(bot, message)
     except Exception as e:
