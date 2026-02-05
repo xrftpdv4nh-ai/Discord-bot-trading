@@ -56,17 +56,16 @@ async def on_ready():
     except Exception as e:
         print("❌ Role task error:", e)
 
-# ===================== Messages =====================
-@bot.event
+# ===================== Messages =====================@bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
     # 🎫 Tickets System
-try:
-    await handle_ticket_message(message, bot)
-except Exception as e:
-    print("❌ handle_ticket_message error:", e)
+    try:
+        await handle_ticket_message(message, bot)
+    except Exception as e:
+        print("❌ handle_ticket_message error:", e)
 
     # 1️⃣ a-role / e-role
     try:
@@ -92,7 +91,7 @@ except Exception as e:
     except Exception as e:
         print("❌ handle_admin_message error:", e)
 
-    # 5️⃣ أوامر إعطاء / سحب الرول (NEW)
+    # 5️⃣ أوامر إعطاء / سحب الرول
     try:
         await handle_admin_role_message(bot, message)
     except Exception as e:
