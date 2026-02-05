@@ -19,6 +19,9 @@ from admin.wallet_admin import handle_admin_message
 from commands.roles_info import handle_roles_message   # a-role / e-role
 from commands.roles_price import handle_sale_message   # a-sale / e-sale
 
+# ✅ NEW – متابعة صلاحية الرولات
+from commands.role_subscription import check_roles_task
+
 # ===================== Intents =====================
 intents = discord.Intents.default()
 intents.message_content = True
@@ -42,6 +45,13 @@ async def on_ready():
 
     await bot.tree.sync()
     print("✅ Commands Synced")
+
+    # ✅ تشغيل فحص انتهاء الرولات
+    try:
+        check_roles_task.start(bot)
+        print("⏳ Role subscription task started")
+    except Exception as e:
+        print("❌ Role task error:", e)
 
 # ===================== Messages =====================
 @bot.event
