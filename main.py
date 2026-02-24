@@ -40,8 +40,30 @@ from commands.deposit import deposit
 @bot.event
 async def on_ready():
     print(f"🟢 Bot Online | {bot.user}")
-    await mongo_client.admin.command("ping")
-    await bot.tree.sync()
+
+    # Mongo Test
+    try:
+        await mongo_client.admin.command("ping")
+        print("✅ MongoDB Connected")
+    except Exception as e:
+        print("❌ Mongo Error:", e)
+
+    # 🔥 تسجيل الأوامر زي ما كان عندك
+    try:
+        bot.tree.clear_commands(guild=None)
+
+        bot.tree.add_command(ping)
+        bot.tree.add_command(embed)
+        bot.tree.add_command(trade)
+        bot.tree.add_command(clear)
+        bot.tree.add_command(wallet)
+        bot.tree.add_command(deposit)
+
+        synced = await bot.tree.sync()
+        print(f"✅ Synced {len(synced)} commands")
+    except Exception as e:
+        print("❌ Sync Error:", e)
+
     bot.loop.create_task(clean_expired_deposits())
 
 
@@ -49,25 +71,22 @@ async def on_ready():
 @bot.event
 async def on_message(message: discord.Message):
 
-    # ================= ProBot Monitor =================
+    # ===== مراقبة بروبوت =====
     if message.author.id == PROBOT_ID:
 
         content = message.content
 
         if "قام بتحويل" in content:
 
-            # استخراج المبلغ اللي وصل فعليًا
             amount_match = re.search(r"(\d[\d,]*)\$", content)
             if not amount_match:
                 return
 
             net_received = int(amount_match.group(1).replace(",", ""))
 
-            # التأكد إن التحويل للحساب الصحيح
             if str(PROBOT_RECEIVER_ID) not in content:
                 return
 
-            # البحث عن عملية waiting
             pending = await bot.pending.find_one({
                 "status": "waiting_transfer"
             })
@@ -77,7 +96,7 @@ async def on_message(message: discord.Message):
 
             expected_points = pending["points"]
 
-            # 👑 نقارن الصافي اللي وصل بالنقاط المطلوبة
+            # 👑 تحقق بالصافي مش المحول
             if abs(net_received - expected_points) <= 1:
 
                 await bot.pending.update_one(
@@ -92,7 +111,7 @@ async def on_message(message: discord.Message):
                         f"يمكنك الآن الضغط على تأكيد الإضافة."
                     )
 
-    # ================= Continue normal handlers =================
+    # ===== بقية النظام =====
     if message.author.bot:
         return
 
