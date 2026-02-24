@@ -10,7 +10,6 @@ from config import (
     MONGO_URL,
     PROBOT_ID,
     PROBOT_RECEIVER_ID,
-    PROBOT_FEE_RATE,
     DEPOSIT_TIMEOUT
 )
 
@@ -36,45 +35,54 @@ from commands.deposit import deposit
 @bot.event
 async def on_ready():
     print(f"🟢 Bot Online | {bot.user}")
-    await mongo_client.admin.command("ping")
-    print("✅ MongoDB Connected")
 
-    bot.tree.clear_commands(guild=None)
-    bot.tree.add_command(deposit)
-    await bot.tree.sync()
+    try:
+        await mongo_client.admin.command("ping")
+        print("✅ MongoDB Connected")
+    except Exception as e:
+        print("❌ Mongo Error:", e)
+
+    try:
+        bot.tree.clear_commands(guild=None)
+        bot.tree.add_command(deposit)
+        await bot.tree.sync()
+        print("✅ Slash Commands Synced")
+    except Exception as e:
+        print("❌ Sync Error:", e)
 
     bot.loop.create_task(clean_expired_deposits())
 
 
-# ===================== ProBot Auto System =====================
+# ===================== ProBot Auto Detection =====================
 @bot.event
 async def on_message(message: discord.Message):
 
-    # ===== لو الرسالة من بروبوت =====
+    # ===== لو الرسالة من ProBot =====
     if message.author.id == PROBOT_ID:
 
         content = message.content
 
         if "قام بتحويل" in content:
 
-            # استخراج الصافي
+            # استخراج الصافي (آخر رقم قبل $)
             matches = re.findall(r"(\d[\d,]*)\$", content)
             if not matches:
                 return
 
             net_received = int(matches[-1].replace(",", ""))
 
-            # التأكد من الحساب المستلم
+            # التأكد إن التحويل للحساب المطلوب
             if str(PROBOT_RECEIVER_ID) not in content:
                 return
 
-            # استخراج ID الشخص اللي حول
+            # استخراج الشخص اللي حول
             mention_match = re.search(r"<@!?(\d+)>", content)
             if not mention_match:
                 return
 
             user_id = int(mention_match.group(1))
 
+            # البحث عن عملية هذا المستخدم
             pending = await bot.pending.find_one({
                 "user_id": user_id,
                 "status": "waiting_transfer"
@@ -83,10 +91,12 @@ async def on_message(message: discord.Message):
             if not pending:
                 return
 
-            expected_points = pending["points"]
-            expected_net = round(expected_points * (1 - PROBOT_FEE_RATE))
+            expected_net = pending.get("expected_net")
+            expected_points = pending.get("points")
+            channel = bot.get_channel(pending.get("channel_id"))
 
-            channel = bot.get_channel(pending["channel_id"])
+            if not expected_net or not expected_points:
+                return
 
             # ================= نجاح =================
             if net_received == expected_net:
@@ -107,7 +117,7 @@ async def on_message(message: discord.Message):
 
                 if channel:
                     await channel.send(
-                        f"✅ <@{user_id}> تم استلام التحويل بنجاح\n"
+                        f"✅ <@{user_id}> تم استلام {net_received:,} Credits بنجاح\n"
                         f"💎 تم إضافة {expected_points:,} نقطة إلى رصيدك."
                     )
 
@@ -126,7 +136,7 @@ async def on_message(message: discord.Message):
     await bot.process_commands(message)
 
 
-# ===================== تنظيف المهلة =====================
+# ===================== تنظيف العمليات المنتهية =====================
 async def clean_expired_deposits():
     while True:
         now = datetime.utcnow()
@@ -137,7 +147,7 @@ async def clean_expired_deposits():
         }).to_list(length=50)
 
         for item in expired:
-            channel = bot.get_channel(item["channel_id"])
+            channel = bot.get_channel(item.get("channel_id"))
             if channel:
                 await channel.send(
                     f"❌ <@{item['user_id']}> انتهت مهلة التحويل."
@@ -151,4 +161,5 @@ async def clean_expired_deposits():
         await asyncio.sleep(60)
 
 
+# ===================== Run =====================
 bot.run(BOT_TOKEN)
