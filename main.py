@@ -9,7 +9,7 @@ from config import BOT_TOKEN, MONGO_URL
 mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = mongo_client.trono_trade
 wallets_collection = db.wallets
-
+deposits_collection = db.deposits
 # ===================== Intents =====================
 intents = discord.Intents.default()
 intents.message_content = True
