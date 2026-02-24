@@ -42,13 +42,21 @@ from commands.role_subscription import check_roles_task
 async def on_ready():
     print(f"🟢 Bot Online | {bot.user}")
 
+    # ✅ اختبار اتصال MongoDB
+    try:
+        await mongo_client.admin.command("ping")
+        print("✅ MongoDB Connected Successfully")
+    except Exception as e:
+        print("❌ MongoDB Connection Failed:", e)
+
+    # ✅ Sync الأوامر
     try:
         synced = await bot.tree.sync()
         print(f"✅ Synced {len(synced)} commands")
     except Exception as e:
         print("❌ Sync Error:", e)
 
-    # تشغيل فحص انتهاء الرولات
+    # ✅ تشغيل فحص انتهاء الرولات
     try:
         bot.loop.create_task(check_roles_task(bot))
         print("⏳ Role subscription task started")
