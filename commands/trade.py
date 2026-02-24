@@ -143,7 +143,7 @@ class TradeView(View):
 
         embed.set_image(url=UP_IMG if result == "up" else DOWN_IMG)
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
 # ================== COMMAND ==================
 @app_commands.command(name="trade", description="بدء صفقة تداول")
