@@ -77,50 +77,51 @@ async def wallet(interaction: discord.Interaction):
     embed.set_thumbnail(url=interaction.user.display_avatar.url)
 
     # الصف الأول
-    embed.add_field(
-        name="💰 الرصيد الحالي",
-        value=f"```{balance:,}```",
-        inline=True
-    )
+    # ====== الصف الأول ======
+embed.add_field(
+    name="💰 الرصيد الحالي",
+    value=f"```{balance:,}```",
+    inline=True
+)
 
-    embed.add_field(
-        name="📥 إجمالي الإيداع",
-        value=f"```{total_deposit:,}```",
-        inline=True
-    )
+embed.add_field(
+    name="📥 إجمالي الإيداع",
+    value=f"```{total_deposit:,}```",
+    inline=True
+)
 
-    # الصف الثاني
-    embed.add_field(
-        name="📈 إجمالي الأرباح",
-        value=f"```{total_profit:,}```",
-        inline=True
-    )
+# ====== الصف الثاني ======
+embed.add_field(
+    name="📈 إجمالي الأرباح",
+    value=f"```{total_profit:,}```",
+    inline=True
+)
 
-    embed.add_field(
-        name="📉 إجمالي الخسائر",
-        value=f"```{total_loss:,}```",
-        inline=True
-    )
+embed.add_field(
+    name="📉 إجمالي الخسائر",
+    value=f"```{total_loss:,}```",
+    inline=True
+)
 
-    # الصف الثالث
-    embed.add_field(
-        name="📊 صافي الأداء",
-        value=f"```{net:,}```",
-        inline=True
-    )
+# ====== الصف الثالث ======
+embed.add_field(
+    name="📊 صافي الأداء",
+    value=f"```{net:,}```",
+    inline=True
+)
 
-    embed.add_field(
-        name="👑 المستوى",
-        value=f"```{level['name']}```",
-        inline=True
-    )
+embed.add_field(
+    name="👑 المستوى",
+    value=f"```{level['name']}```",
+    inline=True
+)
 
-    # سطر لوحده
-    embed.add_field(
-        name="📅 الصفقات المتبقية اليوم",
-        value=f"```{remaining} / {level['daily_limit']}```",
-        inline=False
-    )
+# ====== السطر الأخير (لوحده) ======
+embed.add_field(
+    name="📅 الصفقات المتبقية اليوم",
+    value=f"```{remaining} / {level['daily_limit']}```",
+    inline=False
+)
 
     embed.set_footer(text="Trono Trading System • Live Data")
 
