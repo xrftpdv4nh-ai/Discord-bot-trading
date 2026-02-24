@@ -10,7 +10,6 @@ from config import (
     MONGO_URL,
     PROBOT_ID,
     PROBOT_RECEIVER_ID,
-    PROBOT_FEE_RATE,
     DEPOSIT_TIMEOUT
 )
 
@@ -36,19 +35,18 @@ from commands.clear import clear
 from commands.wallet import wallet
 from commands.deposit import deposit
 
+
 # ===================== Ready =====================
 @bot.event
 async def on_ready():
     print(f"🟢 Bot Online | {bot.user}")
 
-    # Mongo Test
     try:
         await mongo_client.admin.command("ping")
         print("✅ MongoDB Connected")
     except Exception as e:
         print("❌ Mongo Error:", e)
 
-    # 🔥 تسجيل الأوامر زي ما كان عندك
     try:
         bot.tree.clear_commands(guild=None)
 
@@ -79,18 +77,27 @@ async def on_message(message: discord.Message):
         if "قام بتحويل" in content:
 
             # استخراج كل الأرقام اللي قبل $
-matches = re.findall(r"(\d[\d,]*)\$", content)
+            matches = re.findall(r"(\d[\d,]*)\$", content)
+            if not matches:
+                return
 
-if not matches:
-    return
+            # ناخد آخر رقم (الصافي اللي وصل)
+            net_received = int(matches[-1].replace(",", ""))
 
-# ناخد آخر رقم (المبلغ الفعلي اللي وصل)
-net_received = int(matches[-1].replace(",", ""))
-
+            # التأكد إن التحويل للحساب الصحيح
             if str(PROBOT_RECEIVER_ID) not in content:
                 return
 
+            # استخراج ID الشخص اللي حول
+            mention_match = re.search(r"<@!?(\d+)>", content)
+            if not mention_match:
+                return
+
+            user_id = int(mention_match.group(1))
+
+            # نجيب العملية بتاعة الشخص ده بس
             pending = await bot.pending.find_one({
+                "user_id": user_id,
                 "status": "waiting_transfer"
             })
 
@@ -99,7 +106,7 @@ net_received = int(matches[-1].replace(",", ""))
 
             expected_points = pending["points"]
 
-            # 👑 تحقق بالصافي مش المحول
+            # 👑 نقارن الصافي بالنقاط المطلوبة (نسمح فرق 1)
             if abs(net_received - expected_points) <= 1:
 
                 await bot.pending.update_one(
@@ -107,7 +114,7 @@ net_received = int(matches[-1].replace(",", ""))
                     {"$set": {"status": "ready_to_confirm"}}
                 )
 
-                user = bot.get_user(pending["user_id"])
+                user = bot.get_user(user_id)
                 if user:
                     await user.send(
                         f"✅ تم استلام {net_received:,} Credits صافي\n"
