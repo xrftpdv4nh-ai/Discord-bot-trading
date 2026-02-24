@@ -10,6 +10,7 @@ from config import (
     MONGO_URL,
     PROBOT_ID,
     PROBOT_RECEIVER_ID,
+    PROBOT_FEE_RATE,
     DEPOSIT_TIMEOUT
 )
 
@@ -95,7 +96,7 @@ async def on_message(message: discord.Message):
 
             user_id = int(mention_match.group(1))
 
-            # نجيب العملية بتاعة الشخص ده بس
+            # نجيب العملية الخاصة بالشخص ده فقط
             pending = await bot.pending.find_one({
                 "user_id": user_id,
                 "status": "waiting_transfer"
@@ -106,8 +107,11 @@ async def on_message(message: discord.Message):
 
             expected_points = pending["points"]
 
-            # 👑 نقارن الصافي بالنقاط المطلوبة (نسمح فرق 1)
-            if abs(net_received - expected_points) <= 1:
+            # نحسب الصافي المتوقع بعد خصم العمولة
+            expected_net = int(expected_points * (1 - PROBOT_FEE_RATE))
+
+            # نسمح فرق بسيط 2 بسبب التقريب
+            if abs(net_received - expected_net) <= 2:
 
                 await bot.pending.update_one(
                     {"_id": pending["_id"]},
@@ -117,7 +121,7 @@ async def on_message(message: discord.Message):
                 user = bot.get_user(user_id)
                 if user:
                     await user.send(
-                        f"✅ تم استلام {net_received:,} Credits صافي\n"
+                        f"✅ تم استلام {net_received:,} Credits\n"
                         f"يمكنك الآن الضغط على تأكيد الإضافة."
                     )
 
