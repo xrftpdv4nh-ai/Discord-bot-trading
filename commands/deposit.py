@@ -30,14 +30,30 @@ async def deposit(interaction: discord.Interaction, points: int):
         )
         return
 
-    # حساب المبلغ المطلوب تحويله (يشمل الضريبة)
+    # منع وجود عملية معلقة لنفس المستخدم
+    existing = await interaction.client.pending.find_one({
+        "user_id": interaction.user.id,
+        "status": "waiting_transfer"
+    })
+
+    if existing:
+        await interaction.response.send_message(
+            "❌ لديك عملية إيداع معلقة بالفعل. أكملها أو انتظر انتهاء المهلة."
+        )
+        return
+
+    # حساب المبلغ المطلوب تحويله
     total_required = math.ceil(points / (1 - PROBOT_FEE_RATE))
+
+    # نحسب الصافي المتوقع (اللي المفروض يوصل)
+    expected_net = math.floor(total_required * (1 - PROBOT_FEE_RATE))
 
     # تخزين العملية في قاعدة البيانات
     await interaction.client.pending.insert_one({
         "user_id": interaction.user.id,
         "points": points,
         "total_required": total_required,
+        "expected_net": expected_net,
         "status": "waiting_transfer",
         "channel_id": interaction.channel.id,
         "created_at": datetime.utcnow()
@@ -77,6 +93,12 @@ async def deposit(interaction: discord.Interaction, points: int):
     embed.add_field(
         name="🏦 الحساب المستلم",
         value=f"<@{PROBOT_RECEIVER_ID}>",
+        inline=False
+    )
+
+    embed.add_field(
+        name="💰 الصافي المتوقع وصوله",
+        value=f"```{expected_net:,} Credits```",
         inline=False
     )
 
