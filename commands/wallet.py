@@ -77,4 +77,4 @@ async def wallet(interaction: discord.Interaction):
         text="🔐 بياناتك خاصة بك فقط • Trono Trading System"
     )
 
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed)
