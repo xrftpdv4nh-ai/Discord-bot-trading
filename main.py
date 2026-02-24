@@ -49,22 +49,24 @@ async def on_ready():
     except Exception as e:
         print("❌ MongoDB Connection Failed:", e)
 
-    # إضافة أوامر السلاش
-bot.tree.add_command(ping)
-bot.tree.add_command(embed)
-bot.tree.add_command(trade)
-bot.tree.add_command(clear)
-bot.tree.add_command(wallet)
-bot.tree.add_command(deposit)
+    # ✅ إعادة إضافة أوامر السلاش
+    bot.tree.clear_commands(guild=None)
 
-    # ✅ Sync الأوامر
+    bot.tree.add_command(ping)
+    bot.tree.add_command(embed)
+    bot.tree.add_command(trade)
+    bot.tree.add_command(clear)
+    bot.tree.add_command(wallet)
+    bot.tree.add_command(deposit)
+
+    # ✅ مزامنة
     try:
         synced = await bot.tree.sync()
         print(f"✅ Synced {len(synced)} commands")
     except Exception as e:
         print("❌ Sync Error:", e)
 
-    # ✅ تشغيل فحص انتهاء الرولات
+    # ✅ تشغيل مهمة الرولات
     try:
         bot.loop.create_task(check_roles_task(bot))
         print("⏳ Role subscription task started")
