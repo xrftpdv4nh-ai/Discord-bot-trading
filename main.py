@@ -10,7 +10,6 @@ from config import (
     MONGO_URL,
     PROBOT_ID,
     PROBOT_RECEIVER_ID,
-    PROBOT_FEE_RATE,
     DEPOSIT_TIMEOUT
 )
 
@@ -77,7 +76,7 @@ async def on_message(message: discord.Message):
 
         if "قام بتحويل" in content:
 
-            # استخراج المبلغ الصافي اللي وصل (آخر رقم قبل $)
+            # استخراج الرقم اللي قبل $
             matches = re.findall(r"(\d[\d,]*)\$", content)
             if not matches:
                 return
@@ -88,18 +87,21 @@ async def on_message(message: discord.Message):
             if str(PROBOT_RECEIVER_ID) not in content:
                 return
 
-            # نبحث عن عملية مطابقة بالصافي المتوقع
+            # نجيب كل العمليات المنتظرة
             pending_list = await bot.pending.find({
                 "status": "waiting_transfer"
             }).to_list(length=20)
 
             for pending in pending_list:
 
-                expected_points = pending["points"]
-                expected_net = int(expected_points * (1 - PROBOT_FEE_RATE))
+                # نحسب المبلغ اللي المستخدم المفروض يكون حوله
+                expected_total = pending["total_required"]
 
-                # نسمح فرق 2 بسبب التقريب
-                if abs(net_received - expected_net) <= 2:
+                # نحسب الصافي المتوقع من total_required
+                expected_net = int(expected_total * 0.95)
+
+                # لو الصافي مطابق
+                if net_received == expected_net:
 
                     await bot.pending.update_one(
                         {"_id": pending["_id"]},
