@@ -19,6 +19,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # نخلي الداتابيز متاحة لكل الملفات
 bot.db = db
 bot.wallets = wallets_collection
+bot.deposits = deposits_collection
 
 # ===================== Slash Commands =====================
 from commands.ping import ping
