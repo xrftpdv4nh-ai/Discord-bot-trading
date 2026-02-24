@@ -20,21 +20,17 @@ class DepositView(View):
     @discord.ui.button(label="💳 بدء التحويل عبر ProBot", style=discord.ButtonStyle.primary)
     async def start_transfer(self, interaction: discord.Interaction, button: Button):
 
-        await interaction.response.defer(ephemeral=True)
-
-        await interaction.followup.send(
+        await interaction.response.send_message(
+            f"🔔 {interaction.user.mention}\n"
             f"قم بتحويل:\n"
             f"```{self.total_required:,} Credits```\n"
             f"إلى الحساب:\n"
             f"<@{PROBOT_RECEIVER_ID}>\n\n"
             f"⏳ لديك {DEPOSIT_TIMEOUT} دقائق لإتمام التحويل.",
-            ephemeral=True
         )
 
     @discord.ui.button(label="✅ تأكيد الإضافة", style=discord.ButtonStyle.success)
     async def confirm_add(self, interaction: discord.Interaction, button: Button):
-
-        await interaction.response.defer(ephemeral=True)
 
         pending = interaction.client.pending
         wallets = interaction.client.wallets
@@ -45,9 +41,8 @@ class DepositView(View):
         })
 
         if not data:
-            await interaction.followup.send(
+            await interaction.response.send_message(
                 "❌ لم يتم استلام التحويل بعد أو انتهت المهلة.",
-                ephemeral=True
             )
             return
 
@@ -74,6 +69,12 @@ class DepositView(View):
         )
 
         embed.add_field(
+            name="👤 المستخدم",
+            value=interaction.user.mention,
+            inline=False
+        )
+
+        embed.add_field(
             name="💰 النقاط المضافة",
             value=f"```{self.points:,}```",
             inline=True
@@ -85,7 +86,7 @@ class DepositView(View):
             inline=True
         )
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
 
 # ================== SLASH COMMAND ==================
@@ -93,19 +94,15 @@ class DepositView(View):
 @app_commands.describe(points="عدد النقاط")
 async def deposit(interaction: discord.Interaction, points: int):
 
-    await interaction.response.defer(ephemeral=True)
-
     if interaction.channel.id != DEPOSIT_CHANNEL_ID:
-        await interaction.followup.send(
+        await interaction.response.send_message(
             "🚫 هذا الروم مخصص للشحن فقط.",
-            ephemeral=True
         )
         return
 
     if points <= 0:
-        await interaction.followup.send(
+        await interaction.response.send_message(
             "❌ عدد النقاط يجب أن يكون أكبر من صفر.",
-            ephemeral=True
         )
         return
 
@@ -125,6 +122,12 @@ async def deposit(interaction: discord.Interaction, points: int):
         title="🚀 TRONO PROBOT DEPOSIT",
         description="━━━━━━━━━━━━━━━━━━",
         color=0x3498db
+    )
+
+    embed.add_field(
+        name="👤 المستخدم",
+        value=interaction.user.mention,
+        inline=False
     )
 
     embed.add_field(
@@ -153,8 +156,7 @@ async def deposit(interaction: discord.Interaction, points: int):
 
     embed.set_footer(text="بعد التحويل اضغط تأكيد الإضافة")
 
-    await interaction.followup.send(
+    await interaction.response.send_message(
         embed=embed,
         view=DepositView(points, total_required),
-        ephemeral=True
     )
