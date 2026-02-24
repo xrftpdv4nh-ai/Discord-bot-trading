@@ -3,8 +3,6 @@ import discord
 from discord import app_commands
 from discord.ui import View, Button
 from datetime import date, datetime
-import json
-import os
 
 # ================== IMAGES ==================
 START_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978521375674621/371204A2-EAC5-487E-80E1-E409A2CDB31A.png"
@@ -14,35 +12,6 @@ DOWN_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/146797852
 # ================== ROLES ==================
 PRO_ROLE_ID = 1467922966485668118
 VIP_ROLE_ID = 1467923207389712556
-
-# ================== WALLET ==================
-WALLET_FILE = "data/wallets.json"
-
-def load_wallets():
-    if not os.path.exists(WALLET_FILE):
-        return {}
-    with open(WALLET_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_wallets(data):
-    with open(WALLET_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-
-def get_wallet(user_id: int):
-    wallets = load_wallets()
-    uid = str(user_id)
-
-    if uid not in wallets:
-        wallets[uid] = {
-            "balance": 0,
-            "total_deposit": 0,
-            "total_profit": 0,
-            "total_loss": 0,
-            "last_update": str(datetime.now())
-        }
-        save_wallets(wallets)
-
-    return wallets, wallets[uid]
 
 # ================== TEMP STORAGE ==================
 user_data = {}
@@ -69,7 +38,7 @@ class TradeView(View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
             await interaction.response.send_message(
-                "⛔ **هذه الصفقة ليست لك**",
+                "⛔ هذه الصفقة ليست لك",
                 ephemeral=True
             )
             return False
@@ -84,18 +53,22 @@ class TradeView(View):
         await self.handle(interaction, "down")
 
     async def handle(self, interaction: discord.Interaction, choice: str):
+
         if self.finished:
-            await interaction.response.send_message(
-                "⛔ **الصفقة انتهت بالفعل**",
-                ephemeral=True
-            )
+            await interaction.response.send_message("⛔ الصفقة انتهت", ephemeral=True)
             return
 
         self.finished = True
-        data = user_data[self.user_id]
-        wallets, wallet = get_wallet(self.user_id)
 
-        # ===== منع 3 مكاسب ورا بعض =====
+        wallets = interaction.client.wallets
+        wallet = await wallets.find_one({"user_id": self.user_id})
+
+        if not wallet:
+            await interaction.response.send_message("⛔ خطأ في المحفظة", ephemeral=True)
+            return
+
+        data = user_data[self.user_id]
+
         forced_lose = data["win_streak"] >= 2
         win_rate = self.level["win_rate"]
 
@@ -115,30 +88,53 @@ class TradeView(View):
             data["win_streak"] += 1
             profit = int(self.amount * self.level["profit_rate"])
             data["profit_today"] += profit
-            wallet["balance"] += profit
-            wallet["total_profit"] += profit
-            result_text = f"🎉 **ربحت:** `{profit}`"
+
+            await wallets.update_one(
+                {"user_id": self.user_id},
+                {
+                    "$inc": {
+                        "balance": profit,
+                        "total_profit": profit
+                    },
+                    "$set": {"last_update": str(datetime.now())}
+                }
+            )
+
+            result_text = f"🎉 ربحت `{profit}`"
+            color = 0x2ecc71
+
         else:
             data["win_streak"] = 0
-            wallet["balance"] -= self.amount
-            wallet["total_loss"] += self.amount
-            result_text = f"💥 **خسرت:** `{self.amount}`"
+
+            await wallets.update_one(
+                {"user_id": self.user_id},
+                {
+                    "$inc": {
+                        "balance": -self.amount,
+                        "total_loss": self.amount
+                    },
+                    "$set": {"last_update": str(datetime.now())}
+                }
+            )
+
+            result_text = f"💥 خسرت `{self.amount}`"
+            color = 0xe74c3c
 
         data["trades_today"] += 1
-        wallet["last_update"] = str(datetime.now())
-        save_wallets(wallets)
+
+        updated_wallet = await wallets.find_one({"user_id": self.user_id})
 
         embed = discord.Embed(
-            title="📊 **نتيجة الصفقة**",
+            title="📊 نتيجة الصفقة",
             description=(
-                f"🏷️ **مستواك:** `{self.level['name']}`\n"
-                f"💰 **قيمة الصفقة:** `{self.amount}`\n"
-                f"🧭 **اختيارك:** `{'صعود 📈' if choice == 'up' else 'هبوط 📉'}`\n"
-                f"📉 **حركة السوق:** `{'صعود 📈' if result == 'up' else 'هبوط 📉'}`\n\n"
+                f"🏷️ مستواك: `{self.level['name']}`\n"
+                f"💰 مبلغ الصفقة: `{self.amount}`\n"
+                f"🧭 اختيارك: `{'صعود 📈' if choice == 'up' else 'هبوط 📉'}`\n"
+                f"📉 حركة السوق: `{'صعود 📈' if result == 'up' else 'هبوط 📉'}`\n\n"
                 f"{result_text}\n\n"
-                f"💼 **رصيدك الحالي:** `{wallet['balance']}`"
+                f"💼 رصيدك الحالي: `{updated_wallet.get('balance', 0)}`"
             ),
-            color=0x2ecc71 if win else 0xe74c3c
+            color=color
         )
 
         embed.set_image(url=UP_IMG if result == "up" else DOWN_IMG)
@@ -149,16 +145,29 @@ class TradeView(View):
 @app_commands.command(name="trade", description="بدء صفقة تداول")
 @app_commands.describe(amount="مبلغ التداول")
 async def trade(interaction: discord.Interaction, amount: int):
-    member = interaction.user
-    level = get_user_level(member)
-    uid = member.id
-    today = str(date.today())
 
-    wallets, wallet = get_wallet(uid)
+    wallets = interaction.client.wallets
+    uid = interaction.user.id
+
+    wallet = await wallets.find_one({"user_id": uid})
+
+    if not wallet:
+        wallet = {
+            "user_id": uid,
+            "balance": 0,
+            "total_deposit": 0,
+            "total_profit": 0,
+            "total_loss": 0,
+            "last_update": str(datetime.now())
+        }
+        await wallets.insert_one(wallet)
+
+    level = get_user_level(interaction.user)
+    today = str(date.today())
 
     if wallet["balance"] < amount:
         await interaction.response.send_message(
-            f"⛔ **رصيد غير كافي**\n💼 **رصيدك الحالي:** `{wallet['balance']}`",
+            f"⛔ رصيد غير كافي\nرصيدك الحالي: `{wallet['balance']}`",
             ephemeral=True
         )
         return
@@ -170,28 +179,29 @@ async def trade(interaction: discord.Interaction, amount: int):
 
     if data["trades_today"] >= level["daily_limit"]:
         await interaction.response.send_message(
-            f"⛔ **تم إيقاف التداول اليومي**\n📊 **الحد الأقصى:** `{level['daily_limit']}`",
+            f"⛔ تم إيقاف التداول اليومي\nالحد الأقصى: `{level['daily_limit']}`",
             ephemeral=True
         )
         return
 
     if amount < level["min"] or amount > level["max"]:
         await interaction.response.send_message(
-            f"⛔ **مبلغ غير مسموح**\n🔻 `{level['min']}` | 🔺 `{level['max']}`",
+            f"⛔ مبلغ غير مسموح\n🔻 `{level['min']}` | 🔺 `{level['max']}`",
             ephemeral=True
         )
         return
 
     embed = discord.Embed(
-        title="🚀 **بدء صفقة تداول**",
+        title="🚀 بدء صفقة تداول",
         description=(
-            f"🏷️ **مستواك:** `{level['name']}`\n"
-            f"💰 **مبلغ الصفقة:** `{amount}`\n"
-            f"💼 **رصيدك:** `{wallet['balance']}`\n\n"
-            "📊 **اختر اتجاه السوق:**"
+            f"🏷️ مستواك: `{level['name']}`\n"
+            f"💰 مبلغ الصفقة: `{amount}`\n"
+            f"💼 رصيدك: `{wallet['balance']}`\n\n"
+            "📊 اختر اتجاه السوق:"
         ),
         color=0x3498db
     )
+
     embed.set_image(url=START_IMG)
 
     await interaction.response.send_message(
