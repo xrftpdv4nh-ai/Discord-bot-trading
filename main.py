@@ -9,7 +9,7 @@ from config import BOT_TOKEN, MONGO_URL
 mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = mongo_client.trono_trade
 wallets_collection = db.wallets
-deposits_collection = db.deposits
+
 # ===================== Intents =====================
 intents = discord.Intents.default()
 intents.message_content = True
@@ -19,7 +19,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # نخلي الداتابيز متاحة لكل الملفات
 bot.db = db
 bot.wallets = wallets_collection
-bot.deposits = deposits_collection
 
 # ===================== Slash Commands =====================
 from commands.ping import ping
@@ -30,7 +29,6 @@ from commands.wallet import wallet
 from commands.deposit import deposit
 
 # ===================== Handlers =====================
-from commands.deposit import handle_proof_message
 from admin.wallet_admin import handle_admin_message
 from commands.tickets import handle_ticket_message, handle_call_message
 from commands.roles_info import handle_roles_message
@@ -50,22 +48,22 @@ async def on_ready():
     except Exception as e:
         print("❌ MongoDB Connection Failed:", e)
 
-    # ✅ إعادة إضافة أوامر السلاش
-    bot.tree.clear_commands(guild=None)
-
-    bot.tree.add_command(ping)
-    bot.tree.add_command(embed)
-    bot.tree.add_command(trade)
-    bot.tree.add_command(clear)
-    bot.tree.add_command(wallet)
-    bot.tree.add_command(deposit)
-
-    # ✅ مزامنة
+    # ✅ تسجيل أوامر السلاش
     try:
+        bot.tree.clear_commands(guild=None)
+
+        bot.tree.add_command(ping)
+        bot.tree.add_command(embed)
+        bot.tree.add_command(trade)
+        bot.tree.add_command(clear)
+        bot.tree.add_command(wallet)
+        bot.tree.add_command(deposit)
+
         synced = await bot.tree.sync()
         print(f"✅ Synced {len(synced)} commands")
+
     except Exception as e:
-        print("❌ Sync Error:", e)
+        print("❌ Slash Sync Error:", e)
 
     # ✅ تشغيل مهمة الرولات
     try:
@@ -74,10 +72,12 @@ async def on_ready():
     except Exception as e:
         print("❌ Role task error:", e)
 
+
 # ===================== Global Error Handler =====================
 @bot.event
 async def on_command_error(ctx, error):
     print("⚠️ Command Error:", error)
+
 
 # ===================== Messages =====================
 @bot.event
@@ -90,7 +90,6 @@ async def on_message(message: discord.Message):
         lambda: handle_ticket_message(message, bot),
         lambda: handle_roles_message(message),
         lambda: handle_sale_message(message),
-        lambda: handle_proof_message(message),
         lambda: handle_admin_message(bot, message),
         lambda: handle_admin_role_message(bot, message),
     ]
@@ -102,6 +101,7 @@ async def on_message(message: discord.Message):
             print("❌ Handler error:", e)
 
     await bot.process_commands(message)
+
 
 # ===================== Run =====================
 bot.run(BOT_TOKEN)
