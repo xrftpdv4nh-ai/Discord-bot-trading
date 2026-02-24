@@ -83,8 +83,6 @@ class AdminView(View):
         log_channel = interaction.client.get_channel(LOG_CHANNEL_ID)
 
         if accepted:
-
-            # 💎 إضافة الرصيد في Mongo
             await wallets.update_one(
                 {"user_id": data["user_id"]},
                 {
@@ -127,14 +125,13 @@ class AdminView(View):
                 except:
                     pass
 
-        # تعطيل الأزرار
         for c in self.children:
             c.disabled = True
 
         await interaction.message.edit(view=self)
 
-        # حذف الطلب من Mongo
         await deposits.delete_one({"req_id": self.req_id})
+
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: Button):
@@ -150,8 +147,10 @@ class AdminView(View):
 @app_commands.describe(points="عدد النقاط")
 async def deposit(interaction: discord.Interaction, points: int):
 
+    await interaction.response.defer(ephemeral=True)
+
     if interaction.channel.id != DEPOSIT_CHANNEL_ID:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "🚫 This channel is for deposits only.",
             ephemeral=True
         )
@@ -167,7 +166,7 @@ async def deposit(interaction: discord.Interaction, points: int):
         "points": points,
         "method": None,
         "status": "choose_method",
-        "created_at": str(datetime.now())
+        "created_at": datetime.utcnow()
     })
 
     embed = discord.Embed(
@@ -181,8 +180,62 @@ async def deposit(interaction: discord.Interaction, points: int):
     )
     embed.set_footer(text=f"ID: {req_id}")
 
-    await interaction.response.send_message(
+    await interaction.followup.send(
         embed=embed,
         view=PaymentView(points, req_id),
         ephemeral=True
+    )
+
+
+# ================== PROOF HANDLER ==================
+async def handle_proof_message(message: discord.Message):
+    if not message.attachments or not message.guild:
+        return
+
+    deposits = message.client.deposits
+
+    data = await deposits.find_one(
+        {"user_id": message.author.id},
+        sort=[("created_at", -1)]
+    )
+
+    if not data:
+        return
+
+    if not data.get("method"):
+        await message.channel.send(
+            "❌ لازم تختار طريقة الدفع الأول",
+            delete_after=8
+        )
+        return
+
+    req_id = data["req_id"]
+
+    file = await message.attachments[0].to_file(filename="proof.png")
+
+    try:
+        await message.delete()
+    except:
+        pass
+
+    await message.channel.send(
+        "⏳ تم استلام إثبات التحويل\nطلبك تحت المراجعة 🔍",
+        delete_after=10
+    )
+
+    admin_channel = message.guild.get_channel(ADMIN_ACTION_CHANNEL_ID)
+    if not admin_channel:
+        return
+
+    embed = discord.Embed(title="📥 طلب إيداع جديد", color=0xf1c40f)
+    embed.add_field(name="👤 المستخدم", value=message.author.mention, inline=False)
+    embed.add_field(name="💎 النقاط", value=data["points"], inline=True)
+    embed.add_field(name="💳 الطريقة", value=data["method"], inline=True)
+    embed.set_footer(text=f"ID: {req_id}")
+    embed.set_image(url="attachment://proof.png")
+
+    await admin_channel.send(
+        embed=embed,
+        file=file,
+        view=AdminView(req_id)
     )
