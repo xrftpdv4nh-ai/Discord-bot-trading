@@ -31,69 +31,92 @@ async def handle_admin_message(bot, message: discord.Message):
 
     cmd = args[0].lower()
 
-    # ================== ADD ==================
-    if cmd == "add" and len(args) == 3:
-        if not message.mentions:
-            await message.channel.send("❌ منشن المستخدم الأول")
-            return
+# ================== ADD ==================
+if cmd == "add" and len(args) == 3:
+    if not message.mentions:
+        await message.channel.send("❌ منشن المستخدم الأول")
+        return
 
-        try:
-            amount = int(args[2])
-        except:
-            await message.channel.send("❌ المبلغ لازم يكون رقم")
-            return
+    try:
+        amount = int(args[2])
+        if amount <= 0:
+            raise ValueError
+    except:
+        await message.channel.send("❌ المبلغ لازم يكون رقم أكبر من 0")
+        return
 
-        user = message.mentions[0]
-        wallets = load_wallets()
-        uid = str(user.id)
+    user = message.mentions[0]
+    wallets = message.client.wallets
 
-        if uid not in wallets or not isinstance(wallets[uid], dict):
-            wallets[uid] = {
-                "balance": 0,
-                "total_deposit": 0,
+    await wallets.update_one(
+        {"user_id": user.id},
+        {
+            "$inc": {
+                "balance": amount,
+                "total_deposit": amount
+            },
+            "$set": {
+                "last_update": str(datetime.now())
+            },
+            "$setOnInsert": {
                 "total_profit": 0,
-                "total_loss": 0,
-                "last_update": ""
+                "total_loss": 0
             }
+        },
+        upsert=True
+    )
 
-        wallets[uid]["balance"] += amount
-        wallets[uid]["total_deposit"] += amount
-        wallets[uid]["last_update"] = str(datetime.now())
+    await message.channel.send(
+        f"✅ تم إضافة **{amount}** نقطة لـ {user.mention}"
+    )
 
-        save_wallets(wallets)
+# ================== REMOVE ==================
+elif cmd == "remove" and len(args) == 3:
+    if not message.mentions:
+        await message.channel.send("❌ منشن المستخدم الأول")
+        return
 
-        await message.channel.send(
-            f"✅ تم إضافة **{amount}** نقطة لـ {user.mention}"
-        )
+    try:
+        amount = int(args[2])
+        if amount <= 0:
+            raise ValueError
+    except:
+        await message.channel.send("❌ المبلغ لازم يكون رقم أكبر من 0")
+        return
 
-    # ================== REMOVE ==================
-    elif cmd == "remove" and len(args) == 3:
-        if not message.mentions:
-            await message.channel.send("❌ منشن المستخدم الأول")
-            return
+    user = message.mentions[0]
+    wallets = message.client.wallets
 
-        try:
-            amount = int(args[2])
-        except:
-            await message.channel.send("❌ المبلغ لازم يكون رقم")
-            return
+    wallet = await wallets.find_one({"user_id": user.id})
 
-        user = message.mentions[0]
-        wallets = load_wallets()
-        uid = str(user.id)
+    if not wallet:
+        await message.channel.send("❌ المستخدم ليس لديه محفظة")
+        return
 
-        if uid not in wallets or not isinstance(wallets[uid], dict):
-            await message.channel.send("❌ المستخدم ليس لديه محفظة")
-            return
+    new_balance = max(0, wallet.get("balance", 0) - amount)
 
-        wallets[uid]["balance"] = max(0, wallets[uid]["balance"] - amount)
-        wallets[uid]["last_update"] = str(datetime.now())
+    await wallets.update_one(
+        {"user_id": user.id},
+        {
+            "$set": {
+                "balance": new_balance,
+                "last_update": str(datetime.now())
+            }
+        }
+    )
 
-        save_wallets(wallets)
+    await message.channel.send(
+        f"🚫 تم خصم **{amount}** نقطة من {user.mention}"
+    )
 
-        await message.channel.send(
-            f"🚫 تم خصم **{amount}** نقطة من {user.mention}"
-        )
+# ================== HELP ==================
+elif cmd == "ahelp":
+    await message.channel.send(
+        "**🛠 أوامر الأدمن:**\n"
+        "`add @user amount`\n"
+        "`remove @user amount`\n"
+        "`ahelp`"
+    )
 
     # ================== HELP ==================
     elif cmd == "ahelp":
