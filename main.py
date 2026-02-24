@@ -49,6 +49,14 @@ async def on_ready():
     except Exception as e:
         print("❌ MongoDB Connection Failed:", e)
 
+    # إضافة أوامر السلاش
+bot.tree.add_command(ping)
+bot.tree.add_command(embed)
+bot.tree.add_command(trade)
+bot.tree.add_command(clear)
+bot.tree.add_command(wallet)
+bot.tree.add_command(deposit)
+
     # ✅ Sync الأوامر
     try:
         synced = await bot.tree.sync()
