@@ -1,58 +1,30 @@
 import discord
 from discord import app_commands
-import json
-import os
 from datetime import datetime
 
-DATA_FILE = "data/wallets.json"
-os.makedirs("data", exist_ok=True)
 
+@app_commands.command(name="wallet", description="عرض محفظتك")
+async def wallet(interaction: discord.Interaction):
 
-def load_wallets():
-    if not os.path.exists(DATA_FILE):
-        return {}
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    wallets = interaction.client.wallets
 
-
-def save_wallets(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-
-
-def get_wallet(user_id: int):
-    wallets = load_wallets()
-    uid = str(user_id)
+    # 🔎 نجيب بيانات المستخدم من Mongo
+    data = await wallets.find_one({"user_id": interaction.user.id})
 
     # 🟢 لو المستخدم مش موجود
-    if uid not in wallets:
-        wallets[uid] = {
+    if not data:
+        data = {
             "balance": 0,
             "total_deposit": 0,
             "total_profit": 0,
             "total_loss": 0,
             "last_update": str(datetime.now())
         }
-        save_wallets(wallets)
 
-    # 🔥 لو الرصيد متخزن كـ int (من deposit)
-    elif isinstance(wallets[uid], int):
-        old_balance = wallets[uid]
-        wallets[uid] = {
-            "balance": old_balance,
-            "total_deposit": old_balance,
-            "total_profit": 0,
-            "total_loss": 0,
-            "last_update": str(datetime.now())
-        }
-        save_wallets(wallets)
-
-    return wallets, wallets[uid]
-
-
-@app_commands.command(name="wallet", description="عرض محفظتك")
-async def wallet(interaction: discord.Interaction):
-    wallets, data = get_wallet(interaction.user.id)
+        await wallets.insert_one({
+            "user_id": interaction.user.id,
+            **data
+        })
 
     embed = discord.Embed(
         title="💼 محفظتك",
@@ -61,25 +33,25 @@ async def wallet(interaction: discord.Interaction):
 
     embed.add_field(
         name="💰 الرصيد الحالي",
-        value=f"`{data['balance']}`",
+        value=f"`{data.get('balance', 0)}`",
         inline=False
     )
 
     embed.add_field(
         name="📥 إجمالي الإيداع",
-        value=f"`{data['total_deposit']}`",
+        value=f"`{data.get('total_deposit', 0)}`",
         inline=False
     )
 
     embed.add_field(
         name="📈 إجمالي الأرباح",
-        value=f"`{data['total_profit']}`",
+        value=f"`{data.get('total_profit', 0)}`",
         inline=False
     )
 
     embed.add_field(
         name="📉 إجمالي الخسائر",
-        value=f"`{data['total_loss']}`",
+        value=f"`{data.get('total_loss', 0)}`",
         inline=False
     )
 
