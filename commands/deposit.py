@@ -2,6 +2,8 @@ import discord
 from discord import app_commands
 from discord.ui import View, Button
 from datetime import datetime
+import math
+
 from config import (
     DEPOSIT_CHANNEL_ID,
     PROBOT_FEE_RATE,
@@ -106,10 +108,10 @@ async def deposit(interaction: discord.Interaction, points: int):
         )
         return
 
-    # حساب المطلوب تحويله بعد خصم 20%
-    total_required = int(points / (1 - PROBOT_FEE_RATE))
+    # ✅ الحساب الصح بدون كسور
+    total_required = math.ceil(points / (1 - PROBOT_FEE_RATE))
 
-    # تخزين العملية في Mongo
+    # تخزين العملية
     await interaction.client.pending.insert_one({
         "user_id": interaction.user.id,
         "points": points,
