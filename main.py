@@ -78,11 +78,14 @@ async def on_message(message: discord.Message):
 
         if "قام بتحويل" in content:
 
-            amount_match = re.search(r"(\d[\d,]*)\$", content)
-            if not amount_match:
-                return
+            # استخراج كل الأرقام اللي قبل $
+matches = re.findall(r"(\d[\d,]*)\$", content)
 
-            net_received = int(amount_match.group(1).replace(",", ""))
+if not matches:
+    return
+
+# ناخد آخر رقم (المبلغ الفعلي اللي وصل)
+net_received = int(matches[-1].replace(",", ""))
 
             if str(PROBOT_RECEIVER_ID) not in content:
                 return
