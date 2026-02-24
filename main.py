@@ -64,25 +64,35 @@ async def on_message(message: discord.Message):
 
         if "قام بتحويل" in content:
 
-            # استخراج الصافي (آخر رقم قبل $)
-            matches = re.findall(r"(\d[\d,]*)\$", content)
-            if not matches:
+            # ================= استخراج كل الأرقام =================
+            numbers = re.findall(r"\d[\d,]*", content)
+            if not numbers:
                 return
 
-            net_received = int(matches[-1].replace(",", ""))
+            net_received = max(int(num.replace(",", "")) for num in numbers)
 
-            # التأكد إن التحويل للحساب المطلوب
-            if str(PROBOT_RECEIVER_ID) not in content:
+            # ================= استخراج الحساب المستلم =================
+            receiver_match = re.search(r"<@!?(\d+)>", content)
+            if not receiver_match:
                 return
 
-            # استخراج الشخص اللي حول
+            receiver_id = int(receiver_match.group(1))
+
+            if receiver_id != PROBOT_RECEIVER_ID:
+                return
+
+            # ================= استخراج الشخص اللي حول =================
+            sender_match = re.search(r"قام بتحويل.*?(\d+)", content)
             mention_match = re.search(r"<@!?(\d+)>", content)
-            if not mention_match:
+
+            # نجيب أول منشن في الرسالة (المحول)
+            mentions = re.findall(r"<@!?(\d+)>", content)
+            if not mentions:
                 return
 
-            user_id = int(mention_match.group(1))
+            user_id = int(mentions[0])
 
-            # البحث عن عملية هذا المستخدم
+            # ================= البحث عن عملية =================
             pending = await bot.pending.find_one({
                 "user_id": user_id,
                 "status": "waiting_transfer"
