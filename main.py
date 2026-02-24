@@ -77,53 +77,43 @@ async def on_message(message: discord.Message):
 
         if "قام بتحويل" in content:
 
-            # استخراج كل الأرقام اللي قبل $
+            # استخراج المبلغ الصافي اللي وصل (آخر رقم قبل $)
             matches = re.findall(r"(\d[\d,]*)\$", content)
             if not matches:
                 return
 
-            # ناخد آخر رقم (الصافي اللي وصل)
             net_received = int(matches[-1].replace(",", ""))
 
             # التأكد إن التحويل للحساب الصحيح
             if str(PROBOT_RECEIVER_ID) not in content:
                 return
 
-            # استخراج ID الشخص اللي حول
-            mention_match = re.search(r"<@!?(\d+)>", content)
-            if not mention_match:
-                return
-
-            user_id = int(mention_match.group(1))
-
-            # نجيب العملية الخاصة بالشخص ده فقط
-            pending = await bot.pending.find_one({
-                "user_id": user_id,
+            # نبحث عن عملية مطابقة بالصافي المتوقع
+            pending_list = await bot.pending.find({
                 "status": "waiting_transfer"
-            })
+            }).to_list(length=20)
 
-            if not pending:
-                return
+            for pending in pending_list:
 
-            expected_points = pending["points"]
+                expected_points = pending["points"]
+                expected_net = int(expected_points * (1 - PROBOT_FEE_RATE))
 
-            # نحسب الصافي المتوقع بعد خصم العمولة
-            expected_net = int(expected_points * (1 - PROBOT_FEE_RATE))
+                # نسمح فرق 2 بسبب التقريب
+                if abs(net_received - expected_net) <= 2:
 
-            # نسمح فرق بسيط 2 بسبب التقريب
-            if abs(net_received - expected_net) <= 2:
-
-                await bot.pending.update_one(
-                    {"_id": pending["_id"]},
-                    {"$set": {"status": "ready_to_confirm"}}
-                )
-
-                user = bot.get_user(user_id)
-                if user:
-                    await user.send(
-                        f"✅ تم استلام {net_received:,} Credits\n"
-                        f"يمكنك الآن الضغط على تأكيد الإضافة."
+                    await bot.pending.update_one(
+                        {"_id": pending["_id"]},
+                        {"$set": {"status": "ready_to_confirm"}}
                     )
+
+                    user = bot.get_user(pending["user_id"])
+                    if user:
+                        await user.send(
+                            f"✅ تم استلام {net_received:,} Credits\n"
+                            f"يمكنك الآن الضغط على تأكيد الإضافة."
+                        )
+
+                    break
 
     # ===== بقية النظام =====
     if message.author.bot:
