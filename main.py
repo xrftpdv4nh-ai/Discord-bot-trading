@@ -1,30 +1,14 @@
 import discord
 from discord.ext import commands
+import motor.motor_asyncio
+import asyncio
 
-from config import BOT_TOKEN
+from config import BOT_TOKEN, MONGO_URL
 
-# ===================== Slash Commands =====================
-from commands.ping import ping
-from commands.embed import embed
-from commands.trade import trade
-from commands.clear import clear
-from commands.wallet import wallet
-from commands.deposit import deposit  # أمر الديبوزت
-
-# ===================== Handlers =====================
-from commands.deposit import handle_proof_message
-from admin.wallet_admin import handle_admin_message
-from commands.tickets import handle_ticket_message, handle_call_message
-
-# أوامر بدون prefix
-from commands.roles_info import handle_roles_message   # a-role / e-role
-from commands.roles_price import handle_sale_message   # a-sale / e-sale
-
-# 🆕 أوامر إعطاء / سحب الرول
-from commands.admin_role_commands import handle_admin_role_message
-
-# متابعة صلاحية الرولات
-from commands.role_subscription import check_roles_task
+# ===================== MongoDB =====================
+mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
+db = mongo_client.trono_trade
+wallets_collection = db.wallets
 
 # ===================== Intents =====================
 intents = discord.Intents.default()
@@ -32,30 +16,49 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# نخلي الداتابيز متاحة لكل الملفات
+bot.db = db
+bot.wallets = wallets_collection
+
+# ===================== Slash Commands =====================
+from commands.ping import ping
+from commands.embed import embed
+from commands.trade import trade
+from commands.clear import clear
+from commands.wallet import wallet
+from commands.deposit import deposit
+
+# ===================== Handlers =====================
+from commands.deposit import handle_proof_message
+from admin.wallet_admin import handle_admin_message
+from commands.tickets import handle_ticket_message, handle_call_message
+from commands.roles_info import handle_roles_message
+from commands.roles_price import handle_sale_message
+from commands.admin_role_commands import handle_admin_role_message
+from commands.role_subscription import check_roles_task
+
 # ===================== Ready =====================
 @bot.event
 async def on_ready():
-    print("🟢 Bot Online")
+    print(f"🟢 Bot Online | {bot.user}")
 
-    # ❗ متلغيش أي حاجة
-    bot.tree.clear_commands(guild=None)
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ Synced {len(synced)} commands")
+    except Exception as e:
+        print("❌ Sync Error:", e)
 
-    bot.tree.add_command(ping)
-    bot.tree.add_command(embed)
-    bot.tree.add_command(trade)
-    bot.tree.add_command(clear)
-    bot.tree.add_command(wallet)
-    bot.tree.add_command(deposit)
-
-    await bot.tree.sync()
-    print("✅ Commands Synced")
-
-    # ✅ تشغيل فحص انتهاء الرولات
+    # تشغيل فحص انتهاء الرولات
     try:
         bot.loop.create_task(check_roles_task(bot))
         print("⏳ Role subscription task started")
     except Exception as e:
         print("❌ Role task error:", e)
+
+# ===================== Global Error Handler =====================
+@bot.event
+async def on_command_error(ctx, error):
+    print("⚠️ Command Error:", error)
 
 # ===================== Messages =====================
 @bot.event
@@ -63,47 +66,21 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
-    # 📢 نداء داخل التكت
-    try:
-        await handle_call_message(message)
-    except Exception as e:
-        print("❌ handle_call_message error:", e)
+    handlers = [
+        lambda: handle_call_message(message),
+        lambda: handle_ticket_message(message, bot),
+        lambda: handle_roles_message(message),
+        lambda: handle_sale_message(message),
+        lambda: handle_proof_message(message),
+        lambda: handle_admin_message(bot, message),
+        lambda: handle_admin_role_message(bot, message),
+    ]
 
-    # 🎫 Tickets System
-    try:
-        await handle_ticket_message(message, bot)
-    except Exception as e:
-        print("❌ handle_ticket_message error:", e)
-
-    # 1️⃣ a-role / e-role
-    try:
-        await handle_roles_message(message)
-    except Exception as e:
-        print("❌ handle_roles_message error:", e)
-
-    # 2️⃣ a-sale / e-sale
-    try:
-        await handle_sale_message(message)
-    except Exception as e:
-        print("❌ handle_sale_message error:", e)
-
-    # 3️⃣ إثباتات التحويل
-    try:
-        await handle_proof_message(message)
-    except Exception as e:
-        print("❌ handle_proof_message error:", e)
-
-    # 4️⃣ أوامر الأدمن (add / remove)
-    try:
-        await handle_admin_message(bot, message)
-    except Exception as e:
-        print("❌ handle_admin_message error:", e)
-
-    # 5️⃣ أوامر إعطاء / سحب الرول
-    try:
-        await handle_admin_role_message(bot, message)
-    except Exception as e:
-        print("❌ handle_admin_role_message error:", e)
+    for handler in handlers:
+        try:
+            await handler()
+        except Exception as e:
+            print("❌ Handler error:", e)
 
     await bot.process_commands(message)
 
