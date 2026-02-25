@@ -39,6 +39,7 @@ from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
 from commands.ticket_system import ticket_panel, TicketView, TicketControlView
+from commands.emoji_manager import handle_emoji_message
 
 # ===================== Message Commands (بدون برفكس) =====================
 from commands.roles_info import handle_roles_message
@@ -147,7 +148,7 @@ async def on_message(message: discord.Message):
     await handle_sale_message(message)
     await handle_admin_role_message(bot, message)
     await handle_admin_message(bot, message)
-
+    await handle_emoji_message(bot, message)
     await bot.process_commands(message)
 
 
