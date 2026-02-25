@@ -49,8 +49,7 @@ async def on_ready():
         print("❌ Mongo Error:", e)
 
     try:
-        bot.tree.clear_commands(guild=None)
-
+        # ما نمسحش الأوامر علشان متختفيش
         bot.tree.add_command(ping)
         bot.tree.add_command(embed)
         bot.tree.add_command(trade)
@@ -58,7 +57,7 @@ async def on_ready():
         bot.tree.add_command(wallet)
         bot.tree.add_command(deposit)
         bot.tree.add_command(admin_pending)
-        
+
         await bot.tree.sync()
         print("✅ All Slash Commands Synced")
 
@@ -72,11 +71,11 @@ async def on_ready():
 @bot.event
 async def on_message(message: discord.Message):
 
-    # ===== لو الرسالة من ProBot =====
     if message.author.id == PROBOT_ID:
 
         content = message.content
 
+        # استايل بروبوت الجديد
         if "قام بتحويل" in content and "لـ" in content:
 
             # استخراج الرقم بعد $
@@ -97,7 +96,7 @@ async def on_message(message: discord.Message):
             if receiver_id != PROBOT_RECEIVER_ID:
                 return
 
-            # نبحث عن عملية مطابقة بالصافي
+            # البحث عن عملية مطابقة
             pending_list = await bot.pending.find({
                 "status": "waiting_transfer"
             }).to_list(length=20)
@@ -105,12 +104,12 @@ async def on_message(message: discord.Message):
             for pending in pending_list:
 
                 expected_points = pending["points"]
-                expected_net = expected_points  # الصافي المفروض يوصل
+                expected_net = expected_points  # الصافي المفروض يوصل = النقاط نفسها
 
                 user_id = pending["user_id"]
                 channel = bot.get_channel(pending["channel_id"])
 
-                # سماح فرق 1 بسبب التقريب
+                # سماح فرق 1
                 if abs(net_received - expected_net) <= 1:
 
                     # إضافة النقاط
