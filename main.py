@@ -10,7 +10,6 @@ from config import (
     MONGO_URL,
     PROBOT_ID,
     PROBOT_RECEIVER_ID,
-    PROBOT_FEE_RATE,
     DEPOSIT_TIMEOUT
 )
 
@@ -63,7 +62,7 @@ async def on_message(message: discord.Message):
 
         content = message.content
 
-        # نتأكد إن الرسالة تحويل
+        # تأكد إنها رسالة تحويل
         if "قام بتحويل" in content and "لـ" in content:
 
             # استخراج الرقم بعد $
@@ -92,7 +91,7 @@ async def on_message(message: discord.Message):
             for pending in pending_list:
 
                 expected_points = pending["points"]
-                expected_net = round(expected_points * (1 - PROBOT_FEE_RATE))
+                expected_net = expected_points  # ✅ الصافي المفروض يوصل = النقاط نفسها
 
                 channel = bot.get_channel(pending["channel_id"])
                 user_id = pending["user_id"]
@@ -122,14 +121,10 @@ async def on_message(message: discord.Message):
                         )
 
                     break
-                else:
-                    # مبلغ غير مطابق
-                    if channel:
-                        await channel.send(
-                            f"❌ <@{user_id}> تم تحويل مبلغ غير مطابق.\n"
-                            f"المطلوب صافي: {expected_net:,}\n"
-                            f"الواصل: {net_received:,}"
-                        )
+
+            else:
+                # لو مفيش عملية مطابقة
+                pass
 
     if message.author.bot:
         return
