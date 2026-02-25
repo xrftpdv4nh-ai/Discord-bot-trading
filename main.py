@@ -21,7 +21,10 @@ wallets_collection = db.wallets
 pending_collection = db.pending_deposits
 
 # ===================== Intents =====================
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 bot.wallets = wallets_collection
@@ -35,7 +38,10 @@ from commands.clear import clear
 from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
-from systems.ticket_system import ticket_panel, TicketView
+
+# ===================== Ticket System =====================
+from systems.ticket_system import ticket_panel, TicketView, TicketControlView
+
 # ===================== Message Handlers =====================
 from commands.roles_info import handle_roles_message
 from commands.roles_price import handle_sale_message
@@ -51,6 +57,7 @@ async def on_ready():
     await mongo_client.admin.command("ping")
     print("✅ MongoDB Connected")
 
+    # تسجيل أوامر السلاش
     bot.tree.add_command(ping)
     bot.tree.add_command(embed)
     bot.tree.add_command(trade)
@@ -58,9 +65,14 @@ async def on_ready():
     bot.tree.add_command(wallet)
     bot.tree.add_command(deposit)
     bot.tree.add_command(admin_pending)
+    bot.tree.add_command(ticket_panel)
 
-    synced = await bot.tree.sync()
-    print(f"✅ Synced {len(synced)} Slash Commands")
+    await bot.tree.sync()
+    print("✅ Slash Commands Synced")
+
+    # Persistent Views
+    bot.add_view(TicketView())
+    bot.add_view(TicketControlView())
 
     bot.loop.create_task(clean_expired_deposits())
 
@@ -69,11 +81,10 @@ async def on_ready():
 @bot.event
 async def on_message(message: discord.Message):
 
-    # تجاهل أي بوت
     if message.author.bot:
         return
 
-    # ===================== ProBot Detection =====================
+    # ===== ProBot Detection =====
     if message.author.id == PROBOT_ID:
 
         content = message.content
@@ -126,13 +137,12 @@ async def on_message(message: discord.Message):
 
                                 break
 
-    # ===================== أوامر بدون برفكس =====================
+    # ===== أوامر بدون برفكس =====
     await handle_roles_message(message)
     await handle_sale_message(message)
     await handle_admin_role_message(bot, message)
     await handle_admin_message(bot, message)
 
-    # مهم علشان السلاش يفضل شغال
     await bot.process_commands(message)
 
 
