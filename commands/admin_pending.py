@@ -4,20 +4,29 @@ from config import ADMIN_IDS
 from bson import ObjectId
 
 
+# ===================== دالة تحقق الأدمن =====================
+def is_authorized(interaction: discord.Interaction) -> bool:
+    return (
+        interaction.user.id in ADMIN_IDS
+        or interaction.user.guild_permissions.administrator
+        or interaction.user.id == interaction.guild.owner_id
+    )
+
+
 # ===================== عرض العمليات المعلقة =====================
 @app_commands.command(name="pending", description="عرض الإيداعات المعلقة (أدمن فقط)")
 async def admin_pending(interaction: discord.Interaction):
 
-    if interaction.user.id not in ADMIN_IDS:
+    if not is_authorized(interaction):
         await interaction.response.send_message(
-            "❌ هذا الأمر للأدمن فقط.",
+            "❌ هذا الأمر مخصص للأدمن فقط.",
             ephemeral=True
         )
         return
 
     pending_list = await interaction.client.pending.find({
         "status": "waiting_transfer"
-    }).to_list(length=20)
+    }).to_list(length=25)
 
     if not pending_list:
         await interaction.response.send_message("✅ لا توجد عمليات معلقة.")
@@ -31,7 +40,11 @@ async def admin_pending(interaction: discord.Interaction):
     for item in pending_list:
         embed.add_field(
             name=f"ID: {item['_id']}",
-            value=f"👤 <@{item['user_id']}>\n💎 {item['points']} نقطة",
+            value=(
+                f"👤 <@{item['user_id']}>\n"
+                f"💎 {item['points']} نقطة\n"
+                f"💳 المطلوب تحويله: {item.get('total_required', 'غير محدد')}"
+            ),
             inline=False
         )
 
@@ -43,9 +56,9 @@ async def admin_pending(interaction: discord.Interaction):
 @app_commands.describe(deposit_id="ID العملية")
 async def delete_pending(interaction: discord.Interaction, deposit_id: str):
 
-    if interaction.user.id not in ADMIN_IDS:
+    if not is_authorized(interaction):
         await interaction.response.send_message(
-            "❌ هذا الأمر للأدمن فقط.",
+            "❌ هذا الأمر مخصص للأدمن فقط.",
             ephemeral=True
         )
         return
