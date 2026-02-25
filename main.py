@@ -36,10 +36,10 @@ from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
 
-# 👇 الملفات اللي انت قولت عليهم
-from commands.admin_role_commands import *
-from commands.roles_info import *
-from commands.roles_price import *
+# ===================== Message Handlers (بدون برفكس) =====================
+from commands.roles_info import handle_roles_message
+from commands.roles_price import handle_sale_message
+from commands.admin_role_commands import handle_admin_role_message
 
 
 # ===================== Ready =====================
@@ -54,31 +54,19 @@ async def on_ready():
         print("❌ Mongo Error:", e)
 
     try:
-        # إضافة كل أوامر السلاش
-        bot.tree.add_command(ping)
-        bot.tree.add_command(embed)
-        bot.tree.add_command(trade)
-        bot.tree.add_command(clear)
-        bot.tree.add_command(wallet)
-        bot.tree.add_command(deposit)
-        bot.tree.add_command(admin_pending)
-
-        # الأوامر الجديدة (لو جواهم app_commands)
-        # لو الملفات فيها أكتر من أمر هيتسجلوا تلقائي بسبب import *
-
-        await bot.tree.sync()
-        print("✅ All Slash Commands Synced")
-
+        synced = await bot.tree.sync()
+        print(f"✅ Synced {len(synced)} Slash Commands")
     except Exception as e:
         print("❌ Sync Error:", e)
 
     bot.loop.create_task(clean_expired_deposits())
 
 
-# ===================== ProBot Auto Detection =====================
+# ===================== on_message =====================
 @bot.event
 async def on_message(message: discord.Message):
 
+    # ===== ProBot Detection =====
     if message.author.id == PROBOT_ID:
 
         content = message.content
@@ -107,12 +95,10 @@ async def on_message(message: discord.Message):
             for pending in pending_list:
 
                 expected_points = pending["points"]
-                expected_net = expected_points
-
                 user_id = pending["user_id"]
                 channel = bot.get_channel(pending["channel_id"])
 
-                if abs(net_received - expected_net) <= 1:
+                if abs(net_received - expected_points) <= 1:
 
                     await bot.wallets.update_one(
                         {"user_id": user_id},
@@ -130,14 +116,19 @@ async def on_message(message: discord.Message):
 
                     if channel:
                         await channel.send(
-                            f"✅ <@{user_id}> تم استلام {net_received:,} Credits بنجاح\n"
-                            f"💎 تم إضافة {expected_points:,} نقطة إلى رصيدك."
+                            f"✅ <@{user_id}> تم استلام {net_received:,} Credits\n"
+                            f"💎 تم إضافة {expected_points:,} نقطة."
                         )
 
                     break
 
     if message.author.bot:
         return
+
+    # ===== أوامر بدون برفكس =====
+    await handle_roles_message(message)
+    await handle_sale_message(message)
+    await handle_admin_role_message(bot, message)
 
     await bot.process_commands(message)
 
