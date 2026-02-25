@@ -36,7 +36,7 @@ from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
 
-# ===================== Message Handlers (بدون برفكس) =====================
+# ===================== Message Handlers =====================
 from commands.roles_info import handle_roles_message
 from commands.roles_price import handle_sale_message
 from commands.admin_role_commands import handle_admin_role_message
@@ -47,17 +47,20 @@ from commands.admin_role_commands import handle_admin_role_message
 async def on_ready():
     print(f"🟢 Bot Online | {bot.user}")
 
-    try:
-        await mongo_client.admin.command("ping")
-        print("✅ MongoDB Connected")
-    except Exception as e:
-        print("❌ Mongo Error:", e)
+    await mongo_client.admin.command("ping")
+    print("✅ MongoDB Connected")
 
-    try:
-        synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} Slash Commands")
-    except Exception as e:
-        print("❌ Sync Error:", e)
+    # تسجيل الأوامر يدوي (مهم)
+    bot.tree.add_command(ping)
+    bot.tree.add_command(embed)
+    bot.tree.add_command(trade)
+    bot.tree.add_command(clear)
+    bot.tree.add_command(wallet)
+    bot.tree.add_command(deposit)
+    bot.tree.add_command(admin_pending)
+
+    synced = await bot.tree.sync()
+    print(f"✅ Synced {len(synced)} Slash Commands")
 
     bot.loop.create_task(clean_expired_deposits())
 
@@ -158,5 +161,4 @@ async def clean_expired_deposits():
         await asyncio.sleep(60)
 
 
-# ===================== Run =====================
 bot.run(BOT_TOKEN)
