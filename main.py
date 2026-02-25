@@ -10,6 +10,7 @@ from config import (
     MONGO_URL,
     PROBOT_ID,
     PROBOT_RECEIVER_ID,
+    PROBOT_FEE_RATE,
     DEPOSIT_TIMEOUT
 )
 
@@ -62,83 +63,73 @@ async def on_message(message: discord.Message):
 
         content = message.content
 
-        if "قام بتحويل" in content:
+        # نتأكد إن الرسالة تحويل
+        if "قام بتحويل" in content and "لـ" in content:
 
-            # ================= استخراج كل الأرقام =================
-            numbers = re.findall(r"\d[\d,]*", content)
-            if not numbers:
+            # استخراج الرقم بعد $
+            amount_match = re.search(r"\$(\d[\d,]*)", content)
+            if not amount_match:
                 return
 
-            net_received = max(int(num.replace(",", "")) for num in numbers)
+            net_received = int(amount_match.group(1).replace(",", ""))
 
-            # ================= استخراج الحساب المستلم =================
-            receiver_match = re.search(r"<@!?(\d+)>", content)
+            # استخراج الحساب المستلم
+            receiver_match = re.search(r"لـ <@!?(\d+)>", content)
             if not receiver_match:
                 return
 
             receiver_id = int(receiver_match.group(1))
 
+            # لازم يكون التحويل لحسابنا
             if receiver_id != PROBOT_RECEIVER_ID:
                 return
 
-            # ================= استخراج الشخص اللي حول =================
-            sender_match = re.search(r"قام بتحويل.*?(\d+)", content)
-            mention_match = re.search(r"<@!?(\d+)>", content)
-
-            # نجيب أول منشن في الرسالة (المحول)
-            mentions = re.findall(r"<@!?(\d+)>", content)
-            if not mentions:
-                return
-
-            user_id = int(mentions[0])
-
-            # ================= البحث عن عملية =================
-            pending = await bot.pending.find_one({
-                "user_id": user_id,
+            # نجيب كل العمليات المعلقة
+            pending_list = await bot.pending.find({
                 "status": "waiting_transfer"
-            })
+            }).to_list(length=20)
 
-            if not pending:
-                return
+            for pending in pending_list:
 
-            expected_net = pending.get("expected_net")
-            expected_points = pending.get("points")
-            channel = bot.get_channel(pending.get("channel_id"))
+                expected_points = pending["points"]
+                expected_net = round(expected_points * (1 - PROBOT_FEE_RATE))
 
-            if not expected_net or not expected_points:
-                return
+                channel = bot.get_channel(pending["channel_id"])
+                user_id = pending["user_id"]
 
-            # ================= نجاح =================
-            if net_received == expected_net:
+                # نسمح فرق 1 بسبب التقريب
+                if abs(net_received - expected_net) <= 1:
 
-                await bot.wallets.update_one(
-                    {"user_id": user_id},
-                    {
-                        "$inc": {
-                            "balance": expected_points,
-                            "total_deposit": expected_points
+                    # إضافة النقاط
+                    await bot.wallets.update_one(
+                        {"user_id": user_id},
+                        {
+                            "$inc": {
+                                "balance": expected_points,
+                                "total_deposit": expected_points
+                            },
+                            "$set": {"last_update": datetime.utcnow()}
                         },
-                        "$set": {"last_update": datetime.utcnow()}
-                    },
-                    upsert=True
-                )
-
-                await bot.pending.delete_one({"_id": pending["_id"]})
-
-                if channel:
-                    await channel.send(
-                        f"✅ <@{user_id}> تم استلام {net_received:,} Credits بنجاح\n"
-                        f"💎 تم إضافة {expected_points:,} نقطة إلى رصيدك."
+                        upsert=True
                     )
 
-            # ================= خطأ مبلغ =================
-            else:
-                if channel:
-                    await channel.send(
-                        f"❌ <@{user_id}> تم تحويل مبلغ غير مطابق.\n"
-                        f"المطلوب صافي: {expected_net:,}\n"
-                        f"الواصل: {net_received:,}"
-                    )
+                    await bot.pending.delete_one({"_id": pending["_id"]})
+
+                    if channel:
+                        await channel.send(
+                            f"✅ <@{user_id}> تم استلام {net_received:,} Credits بنجاح\n"
+                            f"💎 تم إضافة {expected_points:,} نقطة إلى رصيدك."
+                        )
+
+                    break
+                else:
+                    # مبلغ غير مطابق
+                    if channel:
+                        await channel.send(
+                            f"❌ <@{user_id}> تم تحويل مبلغ غير مطابق.\n"
+                            f"المطلوب صافي: {expected_net:,}\n"
+                            f"الواصل: {net_received:,}"
+                        )
 
     if message.author.bot:
         return
