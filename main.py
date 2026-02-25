@@ -42,6 +42,7 @@ from commands.roles_price import handle_sale_message
 from commands.admin_role_commands import handle_admin_role_message
 from admin.wallet_admin import handle_admin_message
 
+
 # ===================== Ready =====================
 @bot.event
 async def on_ready():
@@ -50,7 +51,6 @@ async def on_ready():
     await mongo_client.admin.command("ping")
     print("✅ MongoDB Connected")
 
-    # تسجيل الأوامر يدوي (مهم)
     bot.tree.add_command(ping)
     bot.tree.add_command(embed)
     bot.tree.add_command(trade)
@@ -69,7 +69,11 @@ async def on_ready():
 @bot.event
 async def on_message(message: discord.Message):
 
-    # ===== ProBot Detection =====
+    # تجاهل أي بوت
+    if message.author.bot:
+        return
+
+    # ===================== ProBot Detection =====================
     if message.author.id == PROBOT_ID:
 
         content = message.content
@@ -77,64 +81,59 @@ async def on_message(message: discord.Message):
         if "قام بتحويل" in content and "لـ" in content:
 
             amount_match = re.search(r"\$(\d[\d,]*)", content)
-            if not amount_match:
-                return
+            if amount_match:
 
-            net_received = int(amount_match.group(1).replace(",", ""))
+                net_received = int(amount_match.group(1).replace(",", ""))
 
-            receiver_match = re.search(r"لـ <@!?(\d+)>", content)
-            if not receiver_match:
-                return
+                receiver_match = re.search(r"لـ <@!?(\d+)>", content)
+                if receiver_match:
 
-            receiver_id = int(receiver_match.group(1))
+                    receiver_id = int(receiver_match.group(1))
 
-            if receiver_id != PROBOT_RECEIVER_ID:
-                return
+                    if receiver_id == PROBOT_RECEIVER_ID:
 
-            pending_list = await bot.pending.find({
-                "status": "waiting_transfer"
-            }).to_list(length=20)
+                        pending_list = await bot.pending.find({
+                            "status": "waiting_transfer"
+                        }).to_list(length=20)
 
-            for pending in pending_list:
+                        for pending in pending_list:
 
-                expected_points = pending["points"]
-                user_id = pending["user_id"]
-                channel = bot.get_channel(pending["channel_id"])
+                            expected_points = pending["points"]
+                            user_id = pending["user_id"]
+                            channel = bot.get_channel(pending["channel_id"])
 
-                if abs(net_received - expected_points) <= 1:
+                            if abs(net_received - expected_points) <= 1:
 
-                    await bot.wallets.update_one(
-                        {"user_id": user_id},
-                        {
-                            "$inc": {
-                                "balance": expected_points,
-                                "total_deposit": expected_points
-                            },
-                            "$set": {"last_update": datetime.utcnow()}
-                        },
-                        upsert=True
-                    )
+                                await bot.wallets.update_one(
+                                    {"user_id": user_id},
+                                    {
+                                        "$inc": {
+                                            "balance": expected_points,
+                                            "total_deposit": expected_points
+                                        },
+                                        "$set": {"last_update": datetime.utcnow()}
+                                    },
+                                    upsert=True
+                                )
 
-                    await bot.pending.delete_one({"_id": pending["_id"]})
+                                await bot.pending.delete_one({"_id": pending["_id"]})
 
-                    if channel:
-                        await channel.send(
-                            f"✅ <@{user_id}> تم استلام {net_received:,} Credits\n"
-                            f"💎 تم إضافة {expected_points:,} نقطة."
-                        )
+                                if channel:
+                                    await channel.send(
+                                        f"✅ <@{user_id}> تم استلام {net_received:,} Credits\n"
+                                        f"💎 تم إضافة {expected_points:,} نقطة."
+                                    )
 
-                    break
+                                break
 
-    if message.author.bot:
-        return
+    # ===================== أوامر بدون برفكس =====================
+    await handle_roles_message(message)
+    await handle_sale_message(message)
+    await handle_admin_role_message(bot, message)
+    await handle_admin_message(bot, message)
 
-# ===== أوامر بدون برفكس =====
-await handle_roles_message(message)
-await handle_sale_message(message)
-await handle_admin_role_message(bot, message)
-await handle_admin_message(bot, message)
-
-await bot.process_commands(message)
+    # مهم علشان السلاش يفضل شغال
+    await bot.process_commands(message)
 
 
 # ===================== تنظيف العمليات =====================
@@ -162,4 +161,5 @@ async def clean_expired_deposits():
         await asyncio.sleep(60)
 
 
+# ===================== Run =====================
 bot.run(BOT_TOKEN)
