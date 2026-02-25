@@ -8,8 +8,8 @@ TICKET_CATEGORY_NAME = "🎫 Support Tickets"
 STAFF_ROLE_NAME = "Support"
 LOG_CHANNEL_NAME = "ticket-logs"
 
-ANIMATED_EMOJI = "<a:trono:123456789012345678>"  # غيره بإيموجي متحرك عندك
-BANNER_URL = "https://i.imgur.com/4M34hi2.png"  # حط بانر خاص بـ Trono هنا
+ANIMATED_EMOJI = "<a:trono:123456789012345678>"
+BANNER_URL = "https://i.imgur.com/4M34hi2.png"
 
 
 # ===================== Helpers =====================
@@ -29,7 +29,6 @@ def count_online_staff(guild: discord.Guild):
     staff_role = discord.utils.get(guild.roles, name=STAFF_ROLE_NAME)
     if not staff_role:
         return 0
-
     return len([m for m in staff_role.members if m.status != discord.Status.offline])
 
 
@@ -56,7 +55,6 @@ class TicketSelect(discord.ui.Select):
         user = interaction.user
         ticket_type = self.values[0]
 
-        # منع تكرار التذكرة
         if discord.utils.get(guild.text_channels, name=f"ticket-{user.name.lower()}"):
             await interaction.response.send_message(
                 "❌ لديك تذكرة مفتوحة بالفعل.",
@@ -97,11 +95,22 @@ class TicketSelect(discord.ui.Select):
                 f"{ANIMATED_EMOJI} **Trono Support System**\n\n"
                 f"👋 مرحباً بك {user.mention}\n"
                 f"تم فتح تذكرتك بنجاح.\n\n"
-                f"━━━━━━━━━━━━━━━━━━\n\n"
-                f"<:Member:1476262613498204195> **فتحت بواسطة:** {user.mention}\n"
-                f"<:Timer:1476263162037801061> **وقت الفتح:** <t:{timestamp}:F>\n"
-                f"<:ID:1476264302577979392> **معرف التذكرة:** `{internal_id}`\n"
-                f"<:Pin:1476263311443234941> **نوع التذكرة:** `{ticket_type}`\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+
+                f"<:Member:1476262613498204195> **فتحت بواسطة**\n"
+                f"{user.mention}\n\n"
+
+                f"<:Timer:1476263162037801061> **وقت الفتح**\n"
+                f"<t:{timestamp}:F>\n\n"
+
+                f"<:ID:1476264302577979392> **معرف التذكرة**\n"
+                f"`{internal_id}`\n\n"
+
+                f"<:Pin:1476263311443234941> **نوع التذكرة**\n"
+                f"`{ticket_type}`\n\n"
+
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+
                 "<:Sparkless:1476262739444895934> يرجى شرح مشكلتك بالتفصيل.\n"
                 "سيتم الرد عليك في أقرب وقت ممكن."
             ),
