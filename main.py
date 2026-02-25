@@ -38,11 +38,9 @@ from commands.clear import clear
 from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
+from commands.ticket_system import ticket_panel, TicketView, TicketControlView
 
-# ===================== Ticket System =====================
-from systems.ticket_system import ticket_panel, TicketView, TicketControlView
-
-# ===================== Message Handlers =====================
+# ===================== Message Commands (بدون برفكس) =====================
 from commands.roles_info import handle_roles_message
 from commands.roles_price import handle_sale_message
 from commands.admin_role_commands import handle_admin_role_message
@@ -54,23 +52,30 @@ from admin.wallet_admin import handle_admin_message
 async def on_ready():
     print(f"🟢 Bot Online | {bot.user}")
 
-    await mongo_client.admin.command("ping")
-    print("✅ MongoDB Connected")
+    try:
+        await mongo_client.admin.command("ping")
+        print("✅ MongoDB Connected")
+    except Exception as e:
+        print("❌ Mongo Error:", e)
 
-    # تسجيل أوامر السلاش
-    bot.tree.add_command(ping)
-    bot.tree.add_command(embed)
-    bot.tree.add_command(trade)
-    bot.tree.add_command(clear)
-    bot.tree.add_command(wallet)
-    bot.tree.add_command(deposit)
-    bot.tree.add_command(admin_pending)
-    bot.tree.add_command(ticket_panel)
+    try:
+        # تسجيل كل أوامر السلاش
+        bot.tree.add_command(ping)
+        bot.tree.add_command(embed)
+        bot.tree.add_command(trade)
+        bot.tree.add_command(clear)
+        bot.tree.add_command(wallet)
+        bot.tree.add_command(deposit)
+        bot.tree.add_command(admin_pending)
+        bot.tree.add_command(ticket_panel)
 
-    await bot.tree.sync()
-    print("✅ Slash Commands Synced")
+        await bot.tree.sync()
+        print("✅ Slash Commands Synced")
 
-    # Persistent Views
+    except Exception as e:
+        print("❌ Sync Error:", e)
+
+    # Persistent Views للتكت
     bot.add_view(TicketView())
     bot.add_view(TicketControlView())
 
