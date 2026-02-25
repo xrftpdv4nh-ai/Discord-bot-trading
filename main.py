@@ -40,7 +40,7 @@ from commands.admin_pending import admin_pending
 from commands.roles_info import handle_roles_message
 from commands.roles_price import handle_sale_message
 from commands.admin_role_commands import handle_admin_role_message
-from commands.wallet_admin import handle_admin_message
+from admin.wallet_admin import handle_admin_message
 
 # ===================== Ready =====================
 @bot.event
