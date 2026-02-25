@@ -92,17 +92,17 @@ class TicketSelect(discord.ui.Select):
         timestamp = int(datetime.utcnow().timestamp())
 
         embed = discord.Embed(
-            title=f"🎟 تذكرة #{ticket_number}",
+            title=f"<:Ticket:1476263052390174886> تذكرة #{ticket_number}",
             description=(
                 f"{ANIMATED_EMOJI} **Trono Support System**\n\n"
                 f"👋 مرحباً بك {user.mention}\n"
                 f"تم فتح تذكرتك بنجاح.\n\n"
                 f"━━━━━━━━━━━━━━━━━━\n\n"
-                f"👤 **فتحت بواسطة:** {user.mention}\n"
-                f"🕒 **وقت الفتح:** <t:{timestamp}:F>\n"
-                f"🆔 **معرف التذكرة:** `{internal_id}`\n"
-                f"📌 **نوع التذكرة:** `{ticket_type}`\n\n"
-                "📝 يرجى شرح مشكلتك بالتفصيل.\n"
+                f"<:Member:1476262613498204195> **فتحت بواسطة:** {user.mention}\n"
+                f"<:Timer:1476263162037801061> **وقت الفتح:** <t:{timestamp}:F>\n"
+                f"<:ID:1476264302577979392> **معرف التذكرة:** `{internal_id}`\n"
+                f"<:Pin:1476263311443234941> **نوع التذكرة:** `{ticket_type}`\n\n"
+                "<:Sparkless:1476262739444895934> يرجى شرح مشكلتك بالتفصيل.\n"
                 "سيتم الرد عليك في أقرب وقت ممكن."
             ),
             color=0x2ecc71
