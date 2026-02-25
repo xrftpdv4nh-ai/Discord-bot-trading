@@ -35,7 +35,7 @@ from commands.clear import clear
 from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
-
+from systems.ticket_system import ticket_panel, TicketView
 # ===================== Message Handlers =====================
 from commands.roles_info import handle_roles_message
 from commands.roles_price import handle_sale_message
