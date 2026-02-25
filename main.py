@@ -36,6 +36,11 @@ from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
 
+# 👇 الملفات اللي انت قولت عليهم
+from commands.admin_role_commands import *
+from commands.roles_info import *
+from commands.roles_price import *
+
 
 # ===================== Ready =====================
 @bot.event
@@ -49,7 +54,7 @@ async def on_ready():
         print("❌ Mongo Error:", e)
 
     try:
-        # ما نمسحش الأوامر علشان متختفيش
+        # إضافة كل أوامر السلاش
         bot.tree.add_command(ping)
         bot.tree.add_command(embed)
         bot.tree.add_command(trade)
@@ -57,6 +62,9 @@ async def on_ready():
         bot.tree.add_command(wallet)
         bot.tree.add_command(deposit)
         bot.tree.add_command(admin_pending)
+
+        # الأوامر الجديدة (لو جواهم app_commands)
+        # لو الملفات فيها أكتر من أمر هيتسجلوا تلقائي بسبب import *
 
         await bot.tree.sync()
         print("✅ All Slash Commands Synced")
@@ -75,28 +83,23 @@ async def on_message(message: discord.Message):
 
         content = message.content
 
-        # استايل بروبوت الجديد
         if "قام بتحويل" in content and "لـ" in content:
 
-            # استخراج الرقم بعد $
             amount_match = re.search(r"\$(\d[\d,]*)", content)
             if not amount_match:
                 return
 
             net_received = int(amount_match.group(1).replace(",", ""))
 
-            # استخراج الحساب المستلم
             receiver_match = re.search(r"لـ <@!?(\d+)>", content)
             if not receiver_match:
                 return
 
             receiver_id = int(receiver_match.group(1))
 
-            # نتأكد إن التحويل لحسابنا
             if receiver_id != PROBOT_RECEIVER_ID:
                 return
 
-            # البحث عن عملية مطابقة
             pending_list = await bot.pending.find({
                 "status": "waiting_transfer"
             }).to_list(length=20)
@@ -104,15 +107,13 @@ async def on_message(message: discord.Message):
             for pending in pending_list:
 
                 expected_points = pending["points"]
-                expected_net = expected_points  # الصافي المفروض يوصل = النقاط نفسها
+                expected_net = expected_points
 
                 user_id = pending["user_id"]
                 channel = bot.get_channel(pending["channel_id"])
 
-                # سماح فرق 1
                 if abs(net_received - expected_net) <= 1:
 
-                    # إضافة النقاط
                     await bot.wallets.update_one(
                         {"user_id": user_id},
                         {
@@ -125,7 +126,6 @@ async def on_message(message: discord.Message):
                         upsert=True
                     )
 
-                    # حذف العملية
                     await bot.pending.delete_one({"_id": pending["_id"]})
 
                     if channel:
@@ -142,7 +142,7 @@ async def on_message(message: discord.Message):
     await bot.process_commands(message)
 
 
-# ===================== تنظيف العمليات المنتهية =====================
+# ===================== تنظيف العمليات =====================
 async def clean_expired_deposits():
     while True:
         now = datetime.utcnow()
