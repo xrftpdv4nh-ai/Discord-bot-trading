@@ -1,20 +1,28 @@
 import discord
 from discord import app_commands
 from datetime import datetime
+import random
+import string
 
 TICKET_CATEGORY_NAME = "🎫 Support Tickets"
 STAFF_ROLE_NAME = "Support"
 LOG_CHANNEL_NAME = "ticket-logs"
 
 ANIMATED_EMOJI = "<a:trono:123456789012345678>"  # غيره بإيموجي متحرك عندك
+BANNER_URL = "https://i.imgur.com/4M34hi2.png"  # حط بانر خاص بـ Trono هنا
 
 
-# ===================== Helper =====================
+# ===================== Helpers =====================
+def generate_ticket_id():
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+
+def generate_ticket_number():
+    return random.randint(100, 999)
+
+
 def count_open_tickets(guild: discord.Guild):
-    return len([
-        ch for ch in guild.text_channels
-        if ch.name.startswith("ticket-")
-    ])
+    return len([ch for ch in guild.text_channels if ch.name.startswith("ticket-")])
 
 
 def count_online_staff(guild: discord.Guild):
@@ -22,10 +30,7 @@ def count_online_staff(guild: discord.Guild):
     if not staff_role:
         return 0
 
-    return len([
-        m for m in staff_role.members
-        if m.status != discord.Status.offline
-    ])
+    return len([m for m in staff_role.members if m.status != discord.Status.offline])
 
 
 # ===================== Ticket Select =====================
@@ -82,20 +87,33 @@ class TicketSelect(discord.ui.Select):
             overwrites=overwrites
         )
 
+        ticket_number = generate_ticket_number()
+        internal_id = generate_ticket_id()
+        timestamp = int(datetime.utcnow().timestamp())
+
         embed = discord.Embed(
-            title=f"{ANIMATED_EMOJI} TRONO SUPPORT TICKET",
+            title=f"🎟 تذكرة #{ticket_number}",
             description=(
-                f"👤 **User:** {user.mention}\n"
-                f"📌 **Type:** `{ticket_type}`\n"
-                f"🆔 **ID:** `{user.id}`\n"
-                f"🕒 **Created:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
-                "📝 الرجاء شرح مشكلتك بالتفصيل."
+                f"{ANIMATED_EMOJI} **Trono Support System**\n\n"
+                f"👋 مرحباً بك {user.mention}\n"
+                f"تم فتح تذكرتك بنجاح.\n\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
+                f"👤 **فتحت بواسطة:** {user.mention}\n"
+                f"🕒 **وقت الفتح:** <t:{timestamp}:F>\n"
+                f"🆔 **معرف التذكرة:** `{internal_id}`\n"
+                f"📌 **نوع التذكرة:** `{ticket_type}`\n\n"
+                "📝 يرجى شرح مشكلتك بالتفصيل.\n"
+                "سيتم الرد عليك في أقرب وقت ممكن."
             ),
             color=0x2ecc71
         )
 
         embed.set_thumbnail(url=user.display_avatar.url)
-        embed.set_footer(text="Trono Premium Support")
+        embed.set_image(url=BANNER_URL)
+        embed.set_footer(
+            text="Trono Trading System • Premium Support",
+            icon_url=guild.icon.url if guild.icon else None
+        )
 
         await channel.send(
             content=staff_role.mention if staff_role else None,
@@ -111,7 +129,7 @@ class TicketSelect(discord.ui.Select):
         log_channel = discord.utils.get(guild.text_channels, name=LOG_CHANNEL_NAME)
         if log_channel:
             await log_channel.send(
-                f"📢 New Ticket: {channel.mention} | User: {user.mention}"
+                f"📢 New Ticket #{ticket_number} | User: {user.mention} | Channel: {channel.mention}"
             )
 
 
@@ -126,32 +144,33 @@ class TicketControlView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Claim", style=discord.ButtonStyle.primary, emoji="👤")
+    @discord.ui.button(label="استلام", style=discord.ButtonStyle.success, emoji="👑")
     async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
         if staff_role not in interaction.user.roles:
-            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            await interaction.response.send_message("❌ هذا الزر مخصص لفريق الدعم.", ephemeral=True)
             return
 
         await interaction.response.send_message(
-            f"👤 Claimed by {interaction.user.mention}"
+            f"👑 تم استلام التذكرة بواسطة {interaction.user.mention}"
         )
 
-    @discord.ui.button(label="Close", style=discord.ButtonStyle.danger, emoji="🔒")
+    @discord.ui.button(label="إغلاق", style=discord.ButtonStyle.danger, emoji="❌")
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
         if staff_role not in interaction.user.roles:
-            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            await interaction.response.send_message("❌ هذا الزر مخصص لفريق الدعم.", ephemeral=True)
             return
 
-        await interaction.response.send_message("🔒 Closing ticket...")
+        await interaction.response.send_message("🔒 جاري إغلاق التذكرة...")
         await interaction.channel.edit(name=f"closed-{interaction.channel.name}")
+        await interaction.channel.set_permissions(interaction.guild.default_role, read_messages=False)
 
 
 # ===================== Panel =====================
-@app_commands.command(name="ticket-panel", description="Send advanced ticket panel")
+@app_commands.command(name="ticket-panel", description="Send premium ticket panel")
 async def ticket_panel(interaction: discord.Interaction):
 
     guild = interaction.guild
