@@ -34,7 +34,7 @@ from commands.trade import trade
 from commands.clear import clear
 from commands.embed import embed
 from commands.ping import ping
-from commands.admin_pending import admin_pending, delete_pending
+from commands.admin_pending import admin_pending
 
 
 # ===================== Ready =====================
@@ -58,8 +58,7 @@ async def on_ready():
         bot.tree.add_command(wallet)
         bot.tree.add_command(deposit)
         bot.tree.add_command(admin_pending)
-        bot.tree.add_command(delete_pending)
-
+        
         await bot.tree.sync()
         print("✅ All Slash Commands Synced")
 
