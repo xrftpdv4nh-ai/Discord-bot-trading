@@ -128,12 +128,15 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
-    # ===== أوامر بدون برفكس =====
-    await handle_roles_message(message)
-    await handle_sale_message(message)
-    await handle_admin_role_message(bot, message)
+# ===== أوامر بدون برفكس =====
+await handle_roles_message(message)
+await handle_sale_message(message)
+await handle_admin_role_message(bot, message)
 
-    await bot.process_commands(message)
+# 🔥 أضف ده
+await handle_admin_message(bot, message)
+
+await bot.process_commands(message)
 
 
 # ===================== تنظيف العمليات =====================
