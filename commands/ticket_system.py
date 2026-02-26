@@ -229,7 +229,7 @@ async def ticket_panel(interaction: discord.Interaction):
 
 async def handle_support_call(bot, message: discord.Message):
 
-    if message.content.lower().strip() != "نداء":
+    if message.content.lower().strip() != "support":
         return
 
     # لازم يكون داخل تكت
@@ -261,3 +261,46 @@ async def handle_support_call(bot, message: discord.Message):
             )
         except:
             pass  # لو قافل الخاص يتخطى
+
+# ===================== Notify User (No Prefix) =====================
+
+async def handle_notify_user(bot, message: discord.Message):
+
+    if message.content.lower().strip() != "come":
+        return
+
+    # لازم يكون داخل تكت
+    if not message.channel.name.startswith("ticket") and not message.channel.name.startswith("claimed"):
+        return
+
+    # لازم يكون رول السابورت
+    if STAFF_ROLE_ID not in [r.id for r in message.author.roles]:
+        return
+
+    # نجيب بيانات التكت من Mongo
+    ticket = await bot.tickets.find_one({"channel_id": message.channel.id})
+    if not ticket:
+        return
+
+    user_id = ticket["user_id"]
+    member = message.guild.get_member(user_id)
+
+    if not member:
+        return
+
+    try:
+        await member.send(
+            f"📢 تم استدعائك داخل التذكرة في سيرفر **{message.guild.name}**\n\n"
+            f"👑 بواسطة: {message.author}\n"
+            f"📂 التذكرة: #{message.channel.name}\n\n"
+            f"🔗 ادخل مباشرة:\n{message.channel.jump_url}"
+        )
+
+        await message.channel.send(
+            f"✅ تم إرسال تنبيه إلى {member.mention}"
+        )
+
+    except:
+        await message.channel.send(
+            "❌ لم يتمكن البوت من إرسال رسالة خاصة (العضو قد يكون قافل الخاص)."
+        )
