@@ -3,9 +3,10 @@ from discord import app_commands
 from datetime import datetime
 import random
 import string
+import asyncio
 
 TICKET_CATEGORY_NAME = "🎫 التذاكر"
-STAFF_ROLE_ID = 1468746308780294266  # 👈 رول السابورت
+STAFF_ROLE_ID = 1468746308780294266
 BANNER_URL = "https://i.ibb.co/Tx78tZjK/63753147-7-A0-C-4965-B8-EB-CE1156433-D1-C.jpg"
 
 
@@ -17,7 +18,7 @@ def generate_ticket_id():
 
 def has_open_ticket(guild: discord.Guild, user: discord.Member):
     for channel in guild.text_channels:
-        if channel.topic and str(user.id) in channel.topic:
+        if channel.topic and f"ticket-owner:{user.id}" in channel.topic:
             return True
     return False
 
@@ -46,7 +47,6 @@ class TicketSelect(discord.ui.Select):
         user = interaction.user
         ticket_type = self.values[0]
 
-        # ✅ منع فتح أكثر من تكت
         if has_open_ticket(guild, user):
             await interaction.response.send_message(
                 "❌ لديك تذكرة مفتوحة بالفعل.",
@@ -71,13 +71,13 @@ class TicketSelect(discord.ui.Select):
                 send_messages=True
             )
 
-        # 👇 اسم التكت باليوزر
         safe_name = user.name.lower().replace(" ", "-")
+
         channel = await guild.create_text_channel(
             name=f"ticket-{safe_name}",
             category=category,
             overwrites=overwrites,
-            topic=f"ticket-owner:{user.id}"  # 👈 نخزن الـ ID هنا
+            topic=f"ticket-owner:{user.id}"
         )
 
         timestamp = int(datetime.utcnow().timestamp())
@@ -90,16 +90,23 @@ class TicketSelect(discord.ui.Select):
                 f"📌 **النوع:** `{ticket_type}`\n"
                 f"🆔 **رقم التذكرة:** `{internal_id}`\n"
                 f"🕒 <t:{timestamp}:F>\n\n"
-                "📜 **الشروط:**\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "📜 **شروط التذكرة:**\n"
                 "• يرجى شرح المشكلة بالتفصيل.\n"
                 "• يمنع السب أو الإساءة.\n"
                 "• يمنع منشن الإدارة عشوائياً.\n\n"
-                "✨ سيتم الرد عليك قريباً."
+                "✨ سيتم الرد عليك في أقرب وقت ممكن."
             ),
             color=0x00ff99
         )
 
+        # صورة الشخص فوق يمين
+        embed.set_thumbnail(url=user.display_avatar.url)
+
+        # البانر
         embed.set_image(url=BANNER_URL)
+
+        embed.set_footer(text="Trono Trade • Premium Support")
 
         await channel.send(
             content=staff_role.mention if staff_role else None,
@@ -150,10 +157,11 @@ class TicketControlView(discord.ui.View):
             )
             return
 
-        await interaction.response.defer()
+        await interaction.response.send_message("🔒 سيتم حذف التذكرة بعد 10 ثواني...")
 
-        await interaction.channel.edit(name=f"closed-{interaction.channel.name}")
-        await interaction.followup.send("🔒 تم إغلاق التذكرة.")
+        await asyncio.sleep(10)
+
+        await interaction.channel.delete()
 
 
 # ===================== Panel Command =====================
