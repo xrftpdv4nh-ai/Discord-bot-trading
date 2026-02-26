@@ -13,15 +13,31 @@ BANNER_URL = "https://i.ibb.co/Tx78tZjK/63753147-7-A0-C-4965-B8-EB-CE1156433-D1-
 
 
 # ===================== Helpers =====================
+
 def generate_ticket_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
 
-def generate_ticket_number():
-    return random.randint(100, 999)
+def count_open_tickets(guild: discord.Guild):
+    return len([
+        ch for ch in guild.text_channels
+        if ch.name.startswith("ticket-")
+    ])
+
+
+def count_online_staff(guild: discord.Guild):
+    staff_role = discord.utils.get(guild.roles, name=STAFF_ROLE_NAME)
+    if not staff_role:
+        return 0
+
+    return len([
+        m for m in staff_role.members
+        if m.status != discord.Status.offline
+    ])
 
 
 # ===================== Ticket Select =====================
+
 class TicketSelect(discord.ui.Select):
     def __init__(self):
         options = [
@@ -44,9 +60,9 @@ class TicketSelect(discord.ui.Select):
         user = interaction.user
         ticket_type = self.values[0]
 
-        # منع فتح أكثر من تكت لنفس الشخص
-        for channel in guild.text_channels:
-            if channel.name.startswith(f"ticket-{user.id}"):
+        # منع فتح أكثر من تذكرة
+        for ch in guild.text_channels:
+            if ch.name.startswith(f"ticket-{user.id}"):
                 await interaction.response.send_message(
                     "❌ لديك تذكرة مفتوحة بالفعل.",
                     ephemeral=True
@@ -76,20 +92,23 @@ class TicketSelect(discord.ui.Select):
             overwrites=overwrites
         )
 
-        ticket_number = generate_ticket_number()
-        internal_id = generate_ticket_id()
         timestamp = int(datetime.utcnow().timestamp())
+        internal_id = generate_ticket_id()
 
         embed = discord.Embed(
-            title=f"🎫 التذكرة رقم #{ticket_number}",
+            title="🎫 تم فتح تذكرتك بنجاح",
             description=(
-                f"{ANIMATED_EMOJI} **مركز دعم Trono Trade**\n\n"
-                f"👋 أهلاً بك {user.mention}\n\n"
-                f"🕒 <t:{timestamp}:F>\n"
-                f"🆔 `{internal_id}`\n"
-                f"📌 `{ticket_type}`\n\n"
-                "📜 يرجى شرح مشكلتك بالتفصيل.\n"
-                "✨ سيتم الرد عليك قريباً."
+                f"{ANIMATED_EMOJI} **نظام دعم Trono Trade**\n\n"
+                f"👤 **المستخدم:** {user.mention}\n"
+                f"📌 **نوع التذكرة:** `{ticket_type}`\n"
+                f"🆔 **رقم التذكرة:** `{internal_id}`\n"
+                f"🕒 **وقت الفتح:** <t:{timestamp}:F>\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "📜 **شروط التذكرة:**\n"
+                "• يرجى شرح المشكلة بالتفصيل.\n"
+                "• يمنع السب أو الإساءة.\n"
+                "• يمنع منشن الإدارة عشوائياً.\n\n"
+                "✨ سيتم الرد عليك في أقرب وقت ممكن."
             ),
             color=0x00ff99
         )
@@ -135,7 +154,7 @@ class TicketControlView(discord.ui.View):
             f"👑 تم استلام التذكرة بواسطة {interaction.user.mention}"
         )
 
-    @discord.ui.button(label="❌ إغلاق", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="❌ إغلاق التذكرة", style=discord.ButtonStyle.danger)
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
@@ -150,3 +169,32 @@ class TicketControlView(discord.ui.View):
         await interaction.response.defer()
         await interaction.channel.edit(name=f"closed-{interaction.channel.name}")
         await interaction.followup.send("🔒 تم إغلاق التذكرة.")
+
+
+# ===================== Panel Command =====================
+
+@app_commands.command(name="ticket-panel", description="إرسال بانل التذاكر")
+async def ticket_panel(interaction: discord.Interaction):
+
+    guild = interaction.guild
+    open_count = count_open_tickets(guild)
+    online_staff = count_online_staff(guild)
+
+    embed = discord.Embed(
+        title="🎫 مركز دعم Trono Trade",
+        description=(
+            "اختر نوع التذكرة من القائمة بالأسفل.\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"📂 **التذاكر المفتوحة:** `{open_count}`\n"
+            f"👨‍💻 **الدعم أونلاين:** `{online_staff}`\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "⚠️ يمنع فتح تذكرة بدون سبب واضح.\n"
+            "⚠️ سيتم إغلاق التذكرة عند الإساءة."
+        ),
+        color=0x5865F2
+    )
+
+    await interaction.response.send_message(
+        embed=embed,
+        view=TicketView()
+    )
