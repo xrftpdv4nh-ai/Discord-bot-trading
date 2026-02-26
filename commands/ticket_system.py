@@ -227,6 +227,8 @@ async def ticket_panel(interaction: discord.Interaction):
 
 # ===================== Support Call (No Prefix + DM) =====================
 
+# ===================== Support Call (Cooldown 1 Hour) =====================
+
 async def handle_support_call(bot, message: discord.Message):
 
     if message.content.lower().strip() != "support":
@@ -236,31 +238,51 @@ async def handle_support_call(bot, message: discord.Message):
     if not message.channel.name.startswith("ticket") and not message.channel.name.startswith("claimed"):
         return
 
-    # لازم يكون عنده رول السابورت
-    if STAFF_ROLE_ID not in [r.id for r in message.author.roles]:
+    ticket = await bot.tickets.find_one({"channel_id": message.channel.id})
+    if not ticket:
         return
+
+    now = datetime.utcnow()
+
+    # تحقق من آخر استدعاء
+    last_call = ticket.get("last_support_call")
+
+    if last_call:
+        diff = (now - last_call).total_seconds()
+        if diff < 3600:
+            remaining = int((3600 - diff) // 60)
+            await message.channel.send(
+                f"⏳ يمكنك استخدام الاستدعاء مرة أخرى بعد {remaining} دقيقة."
+            )
+            return
 
     staff_role = message.guild.get_role(STAFF_ROLE_ID)
     if not staff_role:
         return
 
-    # 👇 رسالة داخل التكت
+    # تحديث وقت آخر استدعاء
+    await bot.tickets.update_one(
+        {"channel_id": message.channel.id},
+        {"$set": {"last_support_call": now}}
+    )
+
+    # منشن داخل التكت
     await message.channel.send(
         f"🚨 {staff_role.mention}\n"
         f"تم طلب الدعم بواسطة {message.author.mention}"
     )
 
-    # 👇 إرسال DM لكل أعضاء رول السابورت
+    # إرسال DM لكل السابورت
     for member in staff_role.members:
         try:
             await member.send(
-                f"🚨 تم طلب دعم في السيرفر: {message.guild.name}\n"
+                f"🚨 استدعاء دعم جديد\n\n"
                 f"📂 التذكرة: #{message.channel.name}\n"
-                f"👤 بواسطة: {message.author}\n\n"
-                f"🔗 اضغط للدخول:\n{message.channel.jump_url}"
+                f"👤 بواسطة: {message.author}\n"
+                f"🔗 {message.channel.jump_url}"
             )
         except:
-            pass  # لو قافل الخاص يتخطى
+            pass
 
 # ===================== Notify User (No Prefix) =====================
 
