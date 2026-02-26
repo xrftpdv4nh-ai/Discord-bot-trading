@@ -222,3 +222,29 @@ async def ticket_panel(interaction: discord.Interaction):
         embed=embed,
         view=TicketView()
     )
+
+# ===================== Support Call (No Prefix) =====================
+
+async def handle_support_call(bot, message: discord.Message):
+
+    # لازم الرسالة تكون "support" فقط
+    if message.content.lower().strip() != "support":
+        return
+
+    # لازم يكون داخل تكت
+    if not message.channel.name.startswith("ticket") and not message.channel.name.startswith("claimed"):
+        return
+
+    # لازم يكون عنده رول السابورت
+    if STAFF_ROLE_ID not in [r.id for r in message.author.roles]:
+        return
+
+    staff_role = message.guild.get_role(STAFF_ROLE_ID)
+
+    if not staff_role:
+        return
+
+    await message.channel.send(
+        f"🚨 {staff_role.mention}\n"
+        f"تم طلب الدعم بواسطة {message.author.mention}"
+    )
