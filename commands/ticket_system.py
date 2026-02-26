@@ -105,14 +105,12 @@ class TicketSelect(discord.ui.Select):
         embed.set_thumbnail(url=user.display_avatar.url)
         embed.set_image(url=BANNER_URL)
 
-        # الرسالة الأساسية
         await channel.send(
             content=staff_role.mention if staff_role else None,
             embed=embed,
             view=TicketControlView()
         )
 
-        # 🔥 رسالة التنبيه المضافة
         await channel.send(
             "🕓 **تنبيه مهم:**\n"
             "تذكرتك الآن في قائمة الانتظار حتى يتم استلامها من فريق الدعم.\n\n"
@@ -230,3 +228,94 @@ async def ticket_panel(interaction: discord.Interaction):
         embed=embed,
         view=TicketView()
     )
+
+
+# ================= Support Call (Cooldown 1 Hour) =================
+
+async def handle_support_call(bot, message: discord.Message):
+
+    if message.content.lower().strip() != "support":
+        return
+
+    if not message.channel.name.startswith("ticket") and not message.channel.name.startswith("claimed"):
+        return
+
+    ticket = await bot.tickets.find_one({"channel_id": message.channel.id})
+    if not ticket:
+        return
+
+    now = datetime.utcnow()
+    last_call = ticket.get("last_support_call")
+
+    if last_call:
+        diff = (now - last_call).total_seconds()
+        if diff < 3600:
+            remaining = int((3600 - diff) // 60)
+            await message.channel.send(
+                f"⏳ يمكنك استخدام الاستدعاء مرة أخرى بعد {remaining} دقيقة."
+            )
+            return
+
+    staff_role = message.guild.get_role(STAFF_ROLE_ID)
+    if not staff_role:
+        return
+
+    await bot.tickets.update_one(
+        {"channel_id": message.channel.id},
+        {"$set": {"last_support_call": now}}
+    )
+
+    await message.channel.send(
+        f"🚨 {staff_role.mention}\n"
+        f"تم طلب الدعم بواسطة {message.author.mention}"
+    )
+
+    for member in staff_role.members:
+        try:
+            await member.send(
+                f"🚨 استدعاء دعم جديد\n\n"
+                f"📂 التذكرة: #{message.channel.name}\n"
+                f"👤 بواسطة: {message.author}\n"
+                f"🔗 {message.channel.jump_url}"
+            )
+        except:
+            pass
+
+
+# ================= Notify Member (Support → User DM) =================
+
+async def handle_notify_user(bot, message: discord.Message):
+
+    if message.content.lower().strip() != "come":
+        return
+
+    if not message.channel.name.startswith("ticket") and not message.channel.name.startswith("claimed"):
+        return
+
+    if STAFF_ROLE_ID not in [r.id for r in message.author.roles]:
+        return
+
+    ticket = await bot.tickets.find_one({"channel_id": message.channel.id})
+    if not ticket:
+        return
+
+    member = message.guild.get_member(ticket["user_id"])
+    if not member:
+        return
+
+    try:
+        await member.send(
+            f"📢 تم استدعاؤك داخل التذكرة\n\n"
+            f"👑 بواسطة: {message.author}\n"
+            f"📂 #{message.channel.name}\n"
+            f"🔗 {message.channel.jump_url}"
+        )
+
+        await message.channel.send(
+            f"✅ تم إرسال تنبيه إلى {member.mention}"
+        )
+
+    except:
+        await message.channel.send(
+            "❌ لا يمكن إرسال رسالة خاصة لهذا العضو."
+        )
