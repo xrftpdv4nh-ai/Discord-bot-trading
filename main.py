@@ -38,10 +38,14 @@ from commands.clear import clear
 from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
-from commands.ticket_system import ticket_panel, TicketView, TicketControlView
+
+# 👇 مهم جداً
+import commands.ticket_system as ticket_system
+from commands.ticket_system import TicketView, TicketControlView
+
 from commands.emoji_manager import handle_emoji_message
 
-# ===================== Message Commands (بدون برفكس) =====================
+# ===================== Message Commands =====================
 from commands.roles_info import handle_roles_message
 from commands.roles_price import handle_sale_message
 from commands.admin_role_commands import handle_admin_role_message
@@ -60,7 +64,9 @@ async def on_ready():
         print("❌ Mongo Error:", e)
 
     try:
-        # تسجيل كل أوامر السلاش
+        # تسجيل الأوامر مرة واحدة فقط
+        bot.tree.clear_commands(guild=None)
+
         bot.tree.add_command(ping)
         bot.tree.add_command(embed)
         bot.tree.add_command(trade)
@@ -68,7 +74,9 @@ async def on_ready():
         bot.tree.add_command(wallet)
         bot.tree.add_command(deposit)
         bot.tree.add_command(admin_pending)
-        bot.tree.add_command(ticket_panel)
+
+        # 👇 تسجيل أمر التكت بالطريقة الصح
+        bot.tree.add_command(ticket_system.ticket_panel)
 
         await bot.tree.sync()
         print("✅ Slash Commands Synced")
@@ -76,7 +84,8 @@ async def on_ready():
     except Exception as e:
         print("❌ Sync Error:", e)
 
-    # Persistent Views للتكت
+    # ================= Persistent Views =================
+    # عشان التكت يفضل شغال بعد الريستارت
     bot.add_view(TicketView())
     bot.add_view(TicketControlView())
 
@@ -87,7 +96,8 @@ async def on_ready():
 @bot.event
 async def on_message(message: discord.Message):
 
-    if message.author.bot:
+    # خليه تحت علشان ProBot Detection يشتغل
+    if message.author.bot and message.author.id != PROBOT_ID:
         return
 
     # ===== ProBot Detection =====
@@ -144,11 +154,13 @@ async def on_message(message: discord.Message):
                                 break
 
     # ===== أوامر بدون برفكس =====
-    await handle_roles_message(message)
-    await handle_sale_message(message)
-    await handle_admin_role_message(bot, message)
-    await handle_admin_message(bot, message)
-    await handle_emoji_message(bot, message)
+    if not message.author.bot:
+        await handle_roles_message(message)
+        await handle_sale_message(message)
+        await handle_admin_role_message(bot, message)
+        await handle_admin_message(bot, message)
+        await handle_emoji_message(bot, message)
+
     await bot.process_commands(message)
 
 
