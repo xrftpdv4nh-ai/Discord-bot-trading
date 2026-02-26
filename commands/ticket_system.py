@@ -225,10 +225,11 @@ async def ticket_panel(interaction: discord.Interaction):
 
 # ===================== Support Call (No Prefix) =====================
 
+# ===================== Support Call (No Prefix + DM) =====================
+
 async def handle_support_call(bot, message: discord.Message):
 
-    # لازم الرسالة تكون "support" فقط
-    if message.content.lower().strip() != "support":
+    if message.content.lower().strip() != "نداء":
         return
 
     # لازم يكون داخل تكت
@@ -240,11 +241,23 @@ async def handle_support_call(bot, message: discord.Message):
         return
 
     staff_role = message.guild.get_role(STAFF_ROLE_ID)
-
     if not staff_role:
         return
 
+    # 👇 رسالة داخل التكت
     await message.channel.send(
         f"🚨 {staff_role.mention}\n"
         f"تم طلب الدعم بواسطة {message.author.mention}"
     )
+
+    # 👇 إرسال DM لكل أعضاء رول السابورت
+    for member in staff_role.members:
+        try:
+            await member.send(
+                f"🚨 تم طلب دعم في السيرفر: {message.guild.name}\n"
+                f"📂 التذكرة: #{message.channel.name}\n"
+                f"👤 بواسطة: {message.author}\n\n"
+                f"🔗 اضغط للدخول:\n{message.channel.jump_url}"
+            )
+        except:
+            pass  # لو قافل الخاص يتخطى
