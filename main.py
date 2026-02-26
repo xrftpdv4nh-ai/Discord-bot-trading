@@ -51,7 +51,7 @@ from commands.roles_info import handle_roles_message
 from commands.roles_price import handle_sale_message
 from commands.admin_role_commands import handle_admin_role_message
 from admin.wallet_admin import handle_admin_message
-
+from commands.ticket_system import handle_support_call
 
 # ===================== Ready =====================
 @bot.event
@@ -156,7 +156,8 @@ async def on_message(message: discord.Message):
         await handle_admin_role_message(bot, message)
         await handle_admin_message(bot, message)
         await handle_emoji_message(bot, message)
-
+        await handle_support_call(bot, message)
+        
     await bot.process_commands(message)
 
 
