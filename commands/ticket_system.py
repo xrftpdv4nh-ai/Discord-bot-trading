@@ -20,7 +20,6 @@ async def create_transcript(channel: discord.TextChannel):
         messages.append(f"[{time}] {msg.author}: {msg.content}")
 
     transcript_text = "\n".join(messages)
-
     buffer = io.BytesIO(transcript_text.encode("utf-8"))
     return discord.File(buffer, filename=f"{channel.name}.txt")
 
@@ -106,10 +105,19 @@ class TicketSelect(discord.ui.Select):
         embed.set_thumbnail(url=user.display_avatar.url)
         embed.set_image(url=BANNER_URL)
 
+        # الرسالة الأساسية
         await channel.send(
             content=staff_role.mention if staff_role else None,
             embed=embed,
             view=TicketControlView()
+        )
+
+        # 🔥 رسالة التنبيه المضافة
+        await channel.send(
+            "🕓 **تنبيه مهم:**\n"
+            "تذكرتك الآن في قائمة الانتظار حتى يتم استلامها من فريق الدعم.\n\n"
+            "🚨 إذا كنت بحاجة لاستعجال الرد يمكنك كتابة `support`\n"
+            "⚠️ مسموح باستدعاء واحد فقط كل ساعة."
         )
 
         await interaction.response.send_message(
@@ -222,107 +230,3 @@ async def ticket_panel(interaction: discord.Interaction):
         embed=embed,
         view=TicketView()
     )
-
-# ===================== Support Call (No Prefix) =====================
-
-# ===================== Support Call (No Prefix + DM) =====================
-
-# ===================== Support Call (Cooldown 1 Hour) =====================
-
-async def handle_support_call(bot, message: discord.Message):
-
-    if message.content.lower().strip() != "support":
-        return
-
-    # لازم يكون داخل تكت
-    if not message.channel.name.startswith("ticket") and not message.channel.name.startswith("claimed"):
-        return
-
-    ticket = await bot.tickets.find_one({"channel_id": message.channel.id})
-    if not ticket:
-        return
-
-    now = datetime.utcnow()
-
-    # تحقق من آخر استدعاء
-    last_call = ticket.get("last_support_call")
-
-    if last_call:
-        diff = (now - last_call).total_seconds()
-        if diff < 3600:
-            remaining = int((3600 - diff) // 60)
-            await message.channel.send(
-                f"⏳ يمكنك استخدام الاستدعاء مرة أخرى بعد {remaining} دقيقة."
-            )
-            return
-
-    staff_role = message.guild.get_role(STAFF_ROLE_ID)
-    if not staff_role:
-        return
-
-    # تحديث وقت آخر استدعاء
-    await bot.tickets.update_one(
-        {"channel_id": message.channel.id},
-        {"$set": {"last_support_call": now}}
-    )
-
-    # منشن داخل التكت
-    await message.channel.send(
-        f"🚨 {staff_role.mention}\n"
-        f"تم طلب الدعم بواسطة {message.author.mention}"
-    )
-
-    # إرسال DM لكل السابورت
-    for member in staff_role.members:
-        try:
-            await member.send(
-                f"🚨 استدعاء دعم جديد\n\n"
-                f"📂 التذكرة: #{message.channel.name}\n"
-                f"👤 بواسطة: {message.author}\n"
-                f"🔗 {message.channel.jump_url}"
-            )
-        except:
-            pass
-
-# ===================== Notify User (No Prefix) =====================
-
-async def handle_notify_user(bot, message: discord.Message):
-
-    if message.content.lower().strip() != "come":
-        return
-
-    # لازم يكون داخل تكت
-    if not message.channel.name.startswith("ticket") and not message.channel.name.startswith("claimed"):
-        return
-
-    # لازم يكون رول السابورت
-    if STAFF_ROLE_ID not in [r.id for r in message.author.roles]:
-        return
-
-    # نجيب بيانات التكت من Mongo
-    ticket = await bot.tickets.find_one({"channel_id": message.channel.id})
-    if not ticket:
-        return
-
-    user_id = ticket["user_id"]
-    member = message.guild.get_member(user_id)
-
-    if not member:
-        return
-
-    try:
-        await member.send(
-            f"📢 تم استدعائك داخل التذكرة في سيرفر **{message.guild.name}**\n\n"
-            f"👑 بواسطة: {message.author}\n"
-            f"📂 التذكرة: #{message.channel.name}\n\n"
-            f"🔗 ادخل مباشرة:\n{message.channel.jump_url}"
-        )
-
-        await message.channel.send(
-            f"✅ تم إرسال تنبيه إلى {member.mention}"
-        )
-
-    except:
-        await message.channel.send(
-            "❌ لم يتمكن البوت من إرسال رسالة خاصة (العضو قد يكون قافل الخاص)."
-        )
