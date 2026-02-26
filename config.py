@@ -32,6 +32,6 @@ DEPOSIT_TIMEOUT = 5  # مدة انتظار التحويل بالدقائق
 # ===================== TRADING SETTINGS =====================
 MIN_BET = 5000
 MAX_BET = 100000
-BASE_WIN_RATE = 0.55
+BASE_WIN_RATE = 0.64
 COOLDOWN_SECONDS = 60
 BIG_TRADE_AMOUNT = 50000
