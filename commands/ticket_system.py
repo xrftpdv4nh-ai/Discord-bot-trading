@@ -9,7 +9,6 @@ STAFF_ROLE_NAME = "Support"
 LOG_CHANNEL_NAME = "ticket-logs"
 
 ANIMATED_EMOJI = "<a:trono:123456789012345678>"
-
 BANNER_URL = "https://i.ibb.co/Tx78tZjK/63753147-7-A0-C-4965-B8-EB-CE1156433-D1-C.jpg"
 
 
@@ -20,17 +19,6 @@ def generate_ticket_id():
 
 def generate_ticket_number():
     return random.randint(100, 999)
-
-
-def count_open_tickets(guild: discord.Guild):
-    return len([ch for ch in guild.text_channels if ch.name.startswith("ticket-")])
-
-
-def count_online_staff(guild: discord.Guild):
-    staff_role = discord.utils.get(guild.roles, name=STAFF_ROLE_NAME)
-    if not staff_role:
-        return 0
-    return len([m for m in staff_role.members if m.status != discord.Status.offline])
 
 
 # ===================== Ticket Select =====================
@@ -56,12 +44,14 @@ class TicketSelect(discord.ui.Select):
         user = interaction.user
         ticket_type = self.values[0]
 
-        if discord.utils.get(guild.text_channels, name=f"ticket-{user.name.lower()}"):
-            await interaction.response.send_message(
-                "❌ لديك تذكرة مفتوحة بالفعل.",
-                ephemeral=True
-            )
-            return
+        # منع فتح أكثر من تكت لنفس الشخص
+        for channel in guild.text_channels:
+            if channel.name.startswith(f"ticket-{user.id}"):
+                await interaction.response.send_message(
+                    "❌ لديك تذكرة مفتوحة بالفعل.",
+                    ephemeral=True
+                )
+                return
 
         category = discord.utils.get(guild.categories, name=TICKET_CATEGORY_NAME)
         if not category:
@@ -81,7 +71,7 @@ class TicketSelect(discord.ui.Select):
             )
 
         channel = await guild.create_text_channel(
-            name=f"ticket-{user.name.lower()}",
+            name=f"ticket-{user.id}",
             category=category,
             overwrites=overwrites
         )
@@ -94,41 +84,17 @@ class TicketSelect(discord.ui.Select):
             title=f"🎫 التذكرة رقم #{ticket_number}",
             description=(
                 f"{ANIMATED_EMOJI} **مركز دعم Trono Trade**\n\n"
-                f"👋 أهلاً بك {user.mention}\n"
-                "تم فتح تذكرتك بنجاح.\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-
-                f"👤 **مقدم التذكرة**\n"
-                f"{user.mention}\n\n"
-
-                f"🕒 **وقت الفتح**\n"
-                f"<t:{timestamp}:F>\n\n"
-
-                f"🆔 **المعرف الداخلي**\n"
-                f"`{internal_id}`\n\n"
-
-                f"📌 **نوع التذكرة**\n"
-                f"`{ticket_type}`\n\n"
-
-                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-
-                "📜 **شروط التذكرة**\n"
-                "• يرجى شرح المشكلة بالتفصيل.\n"
-                "• يمنع السب أو الإساءة.\n"
-                "• يمنع منشن الإدارة بدون سبب.\n"
-                "• سيتم إغلاق التذكرة عند المخالفة.\n\n"
-
-                "✨ سيتم الرد عليك في أقرب وقت ممكن."
+                f"👋 أهلاً بك {user.mention}\n\n"
+                f"🕒 <t:{timestamp}:F>\n"
+                f"🆔 `{internal_id}`\n"
+                f"📌 `{ticket_type}`\n\n"
+                "📜 يرجى شرح مشكلتك بالتفصيل.\n"
+                "✨ سيتم الرد عليك قريباً."
             ),
             color=0x00ff99
         )
 
         embed.set_image(url=BANNER_URL)
-        embed.set_thumbnail(url=user.display_avatar.url)
-        embed.set_footer(
-            text="Trono Trade • نظام دعم احترافي",
-            icon_url=guild.icon.url if guild.icon else None
-        )
 
         await channel.send(
             content=staff_role.mention if staff_role else None,
@@ -141,12 +107,6 @@ class TicketSelect(discord.ui.Select):
             ephemeral=True
         )
 
-        log_channel = discord.utils.get(guild.text_channels, name=LOG_CHANNEL_NAME)
-        if log_channel:
-            await log_channel.send(
-                f"📢 تم فتح تذكرة جديدة #{ticket_number} بواسطة {user.mention}"
-            )
-
 
 class TicketView(discord.ui.View):
     def __init__(self):
@@ -154,63 +114,39 @@ class TicketView(discord.ui.View):
         self.add_item(TicketSelect())
 
 
-# ===================== Controls =====================
 class TicketControlView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="👑 استلام التذكرة", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="👑 استلام", style=discord.ButtonStyle.success)
     async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
-        if staff_role not in interaction.user.roles:
-            await interaction.response.send_message("❌ هذا الزر مخصص لفريق الدعم فقط.", ephemeral=True)
+
+        if not staff_role or staff_role not in interaction.user.roles:
+            await interaction.response.send_message(
+                "❌ هذا الزر مخصص لفريق الدعم فقط.",
+                ephemeral=True
+            )
             return
 
-        await interaction.response.send_message(
+        await interaction.response.defer()
+        await interaction.followup.send(
             f"👑 تم استلام التذكرة بواسطة {interaction.user.mention}"
         )
 
-    @discord.ui.button(label="❌ إغلاق التذكرة", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="❌ إغلاق", style=discord.ButtonStyle.danger)
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         staff_role = discord.utils.get(interaction.guild.roles, name=STAFF_ROLE_NAME)
-        if staff_role not in interaction.user.roles:
-            await interaction.response.send_message("❌ هذا الزر مخصص لفريق الدعم فقط.", ephemeral=True)
+
+        if not staff_role or staff_role not in interaction.user.roles:
+            await interaction.response.send_message(
+                "❌ هذا الزر مخصص لفريق الدعم فقط.",
+                ephemeral=True
+            )
             return
 
-        await interaction.response.send_message("🔒 جاري إغلاق التذكرة...")
-        await interaction.channel.edit(name=f"مغلقة-{interaction.channel.name}")
-        await interaction.channel.set_permissions(interaction.guild.default_role, read_messages=False)
-
-
-# ===================== Panel =====================
-@app_commands.command(name="لوحة-التذاكر", description="إرسال لوحة التذاكر الاحترافية")
-async def ticket_panel(interaction: discord.Interaction):
-
-    guild = interaction.guild
-
-    open_count = count_open_tickets(guild)
-    online_staff = count_online_staff(guild)
-
-    embed = discord.Embed(
-        title=f"{ANIMATED_EMOJI} مركز دعم Trono Trade",
-        description=(
-            "اختر نوع التذكرة من القائمة بالأسفل.\n\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            f"🎟 التذاكر المفتوحة: `{open_count}`\n"
-            f"👨‍💻 الدعم أونلاين: `{online_staff}`\n\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "⚠️ يمنع فتح تذكرة بدون سبب واضح.\n"
-            "⚠️ يمنع منشن الإدارة عشوائياً."
-        ),
-        color=0x00ff99
-    )
-
-    embed.set_image(url=BANNER_URL)
-    embed.set_footer(text="Trono Trade • نظام دعم متطور")
-
-    await interaction.response.send_message(
-        embed=embed,
-        view=TicketView()
-    )
+        await interaction.response.defer()
+        await interaction.channel.edit(name=f"closed-{interaction.channel.name}")
+        await interaction.followup.send("🔒 تم إغلاق التذكرة.")
