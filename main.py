@@ -19,6 +19,7 @@ db = mongo_client.trono_trade
 
 wallets_collection = db.wallets
 pending_collection = db.pending_deposits
+tickets_collection = db.tickets  # 👈 جديد للتكت
 
 # ===================== Intents =====================
 intents = discord.Intents.default()
@@ -29,6 +30,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 bot.wallets = wallets_collection
 bot.pending = pending_collection
+bot.tickets = tickets_collection  # 👈 ربط التكت
 
 # ===================== Slash Commands =====================
 from commands.deposit import deposit
@@ -39,7 +41,6 @@ from commands.embed import embed
 from commands.ping import ping
 from commands.admin_pending import admin_pending
 
-# 👇 مهم جداً
 import commands.ticket_system as ticket_system
 from commands.ticket_system import TicketView, TicketControlView
 
@@ -64,7 +65,6 @@ async def on_ready():
         print("❌ Mongo Error:", e)
 
     try:
-        # تسجيل الأوامر مرة واحدة فقط
         bot.tree.clear_commands(guild=None)
 
         bot.tree.add_command(ping)
@@ -74,8 +74,6 @@ async def on_ready():
         bot.tree.add_command(wallet)
         bot.tree.add_command(deposit)
         bot.tree.add_command(admin_pending)
-
-        # 👇 تسجيل أمر التكت بالطريقة الصح
         bot.tree.add_command(ticket_system.ticket_panel)
 
         await bot.tree.sync()
@@ -84,8 +82,7 @@ async def on_ready():
     except Exception as e:
         print("❌ Sync Error:", e)
 
-    # ================= Persistent Views =================
-    # عشان التكت يفضل شغال بعد الريستارت
+    # 👇 Persistent Views (تشتغل بعد الريستارت)
     bot.add_view(TicketView())
     bot.add_view(TicketControlView())
 
@@ -96,7 +93,6 @@ async def on_ready():
 @bot.event
 async def on_message(message: discord.Message):
 
-    # خليه تحت علشان ProBot Detection يشتغل
     if message.author.bot and message.author.id != PROBOT_ID:
         return
 
