@@ -4,16 +4,13 @@ from discord import app_commands
 from discord.ui import View, Button
 from datetime import date, datetime
 
-# ================== IMAGES ==================
 START_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978521375674621/371204A2-EAC5-487E-80E1-E409A2CDB31A.png"
 UP_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978522042695700/56325194-FA0D-412A-91F0-9632A7FE6AE7.png"
 DOWN_IMG = "https://cdn.discordapp.com/attachments/1293146258516607008/1467978521715675238/56325194-FA0D-412A-91F0-9632A7FE6AE7.png"
 
-# ================== ROLES ==================
 PRO_ROLE_ID = 1467922966485668118
 VIP_ROLE_ID = 1467923207389712556
 
-# ================== TEMP STORAGE ==================
 user_data = {}
 
 def get_user_level(member: discord.Member):
@@ -75,33 +72,28 @@ class TradeView(View):
             "user_id": self.user_id
         })
 
-        # ترتيب الأولوية
         if user_setting:
             win_rate = user_setting["win_rate"] / 100
-            forced_mode = False
         elif global_setting:
             win_rate = global_setting["win_rate"] / 100
-            forced_mode = False
         else:
             win_rate = self.level["win_rate"]
-            forced_mode = True
 
-        # ================== نظام إجبار خسارة ذكي ==================
-        if forced_mode:
-            if "max_streak" not in data:
-                data["max_streak"] = random.randint(2, 3)
+        # ================== إجبار خسارة دايمًا ==================
 
-            forced_lose = data["win_streak"] >= data["max_streak"]
+        if "max_streak" not in data:
+            data["max_streak"] = random.randint(2, 3)
 
-            # تقليل النسبة حسب الأرباح اليومية
+        forced_lose = data["win_streak"] >= data["max_streak"]
+
+        # ================== تقليل نسبة حسب أرباح ==================
+        if not user_setting and not global_setting:
             if data["profit_today"] >= 40000:
                 win_rate -= 0.18
             elif data["profit_today"] >= 20000:
                 win_rate -= 0.08
-        else:
-            forced_lose = False  # لو فيه تحكم يدوي مفيش إجبار
 
-        # تحديد النتيجة
+        # ================== تحديد النتيجة ==================
         if forced_lose:
             result = "down" if choice == "up" else "up"
         else:
@@ -130,7 +122,7 @@ class TradeView(View):
 
         else:
             data["win_streak"] = 0
-            data["max_streak"] = random.randint(2, 3)  # حد جديد بعد الخسارة
+            data["max_streak"] = random.randint(2, 3)
 
             await wallets.update_one(
                 {"user_id": self.user_id},
@@ -168,7 +160,6 @@ class TradeView(View):
         await interaction.response.send_message(embed=embed)
 
 
-# ================== COMMAND ==================
 @app_commands.command(name="trade", description="بدء صفقة تداول")
 @app_commands.describe(amount="مبلغ التداول")
 async def trade(interaction: discord.Interaction, amount: int):
