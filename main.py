@@ -17,10 +17,10 @@ from config import (
 mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = mongo_client.trono_trade
 
+bot.db = db
 wallets_collection = db.wallets
 pending_collection = db.pending_deposits
 tickets_collection = db.tickets  # 👈 جديد للتكت
-bot.db = db
 
 # ===================== Intents =====================
 intents = discord.Intents.default()
