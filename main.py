@@ -53,7 +53,7 @@ from commands.admin_role_commands import handle_admin_role_message
 from admin.wallet_admin import handle_admin_message
 from commands.ticket_system import handle_support_call
 from commands.ticket_system import handle_notify_user
-from admin.trade_control import handle_trade_control
+from commands.trade_control import handle_trade_control
 
 # ===================== Ready =====================
 @bot.event
