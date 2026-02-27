@@ -1,21 +1,21 @@
 import discord
 
-OWNER_IDS = [1035345058561540127]  # حط ايديك هنا
+OWNER_IDS = [1035345058561540127]  # ايديك
 
-# ===================== Global Win Rate =====================
 
 async def handle_trade_control(bot, message: discord.Message):
 
     if message.author.id not in OWNER_IDS:
         return
 
-    args = message.content.lower().split()
-
+    args = message.content.split()
     if not args:
         return
 
+    cmd = args[0].lower()
+
     # ================= تعديل النسبة العامة =================
-    if args[0] == "setwin" and len(args) == 2:
+    if cmd == "setwin" and len(args) == 2:
 
         try:
             new_rate = int(args[1])
@@ -25,13 +25,10 @@ async def handle_trade_control(bot, message: discord.Message):
             await message.channel.send("❌ النسبة لازم تكون بين 0 و 100")
             return
 
-        settings = bot.db.settings
+        old = await bot.db.settings.find_one({"type": "global_trade"})
+        old_rate = old["win_rate"] if old else "افتراضي"
 
-        old = await settings.find_one({"type": "global_trade"})
-
-        old_rate = old["win_rate"] if old else 50
-
-        await settings.update_one(
+        await bot.db.settings.update_one(
             {"type": "global_trade"},
             {"$set": {"win_rate": new_rate}},
             upsert=True
@@ -40,17 +37,20 @@ async def handle_trade_control(bot, message: discord.Message):
         await message.channel.send(
             f"📊 نسبة الربح كانت {old_rate}% وأصبحت {new_rate}%"
         )
+        return
 
-     # ================= رستر للنسبه العامه =================
-    if cmd == "resetwin":
+    # ================= رستر للنسبة العامة =================
+    elif cmd == "resetwin":
 
-    await bot.db.settings.delete_one({"type": "global_trade"})
+        await bot.db.settings.delete_one({"type": "global_trade"})
 
-    await message.channel.send(
-        "♻️ تم إرجاع نسبة الربح للنظام الافتراضي (حسب الرول)."
-    )
+        await message.channel.send(
+            "♻️ تم إرجاع نسبة الربح للنظام الافتراضي (حسب الرول)."
+        )
+        return
+
     # ================= تعديل مستخدم معين =================
-    if args[0] == "setuserwin" and len(args) == 3:
+    elif cmd == "setuserwin" and len(args) == 3:
 
         if not message.mentions:
             await message.channel.send("❌ لازم تمنشن الشخص")
@@ -66,16 +66,14 @@ async def handle_trade_control(bot, message: discord.Message):
             await message.channel.send("❌ النسبة لازم تكون بين 0 و 100")
             return
 
-        settings = bot.db.settings
-
-        old = await settings.find_one({
+        old = await bot.db.settings.find_one({
             "type": "user_trade",
             "user_id": user.id
         })
 
         old_rate = old["win_rate"] if old else "افتراضي"
 
-        await settings.update_one(
+        await bot.db.settings.update_one(
             {
                 "type": "user_trade",
                 "user_id": user.id
@@ -87,21 +85,23 @@ async def handle_trade_control(bot, message: discord.Message):
         await message.channel.send(
             f"👤 نسبة ربح {user.mention} كانت {old_rate}% وأصبحت {new_rate}%"
         )
-
-# ================= رستر لنسبه شخص  =================
-elif cmd == "resetuserwin":
-
-    if not message.mentions:
-        await message.channel.send("❌ منشن المستخدم")
         return
 
-    user = message.mentions[0]
+    # ================= رستر لنسبة شخص =================
+    elif cmd == "resetuserwin":
 
-    await bot.db.settings.delete_one({
-        "type": "user_trade",
-        "user_id": user.id
-    })
+        if not message.mentions:
+            await message.channel.send("❌ منشن المستخدم")
+            return
 
-    await message.channel.send(
-        f"♻️ تم إلغاء النسبة الخاصة بـ {user.mention}"
-    )
+        user = message.mentions[0]
+
+        await bot.db.settings.delete_one({
+            "type": "user_trade",
+            "user_id": user.id
+        })
+
+        await message.channel.send(
+            f"♻️ تم إلغاء النسبة الخاصة بـ {user.mention}"
+        )
+        return
