@@ -27,7 +27,6 @@ def get_user_level(member: discord.Member):
         return {"name": "USER", "min": 3000, "max": 12000, "win_rate": 0.52, "profit_rate": 0.78, "daily_limit": 12}
 
 
-# ================== VIEW ==================
 class TradeView(View):
     def __init__(self, amount: int, user_id: int, level: dict):
         super().__init__(timeout=60)
@@ -67,28 +66,42 @@ class TradeView(View):
 
         data = user_data[self.user_id]
 
-        # ================== قراءة النسبة من Mongo ==================
-        settings = await interaction.client.db.settings.find_one({"type": "global_trade"})
-        win_rate_percent = settings["win_rate"] if settings else int(self.level["win_rate"] * 100)
+        # ================== قراءة النسبة ==================
+        settings_collection = interaction.client.db.settings
 
-        user_setting = await interaction.client.db.settings.find_one({
+        global_setting = await settings_collection.find_one({"type": "global_trade"})
+        user_setting = await settings_collection.find_one({
             "type": "user_trade",
             "user_id": self.user_id
         })
 
+        # ترتيب الأولوية
         if user_setting:
-            win_rate_percent = user_setting["win_rate"]
+            win_rate = user_setting["win_rate"] / 100
+            forced_mode = False
+        elif global_setting:
+            win_rate = global_setting["win_rate"] / 100
+            forced_mode = False
+        else:
+            win_rate = self.level["win_rate"]
+            forced_mode = True
 
-        win_rate = win_rate_percent / 100
+        # ================== نظام إجبار خسارة ذكي ==================
+        if forced_mode:
+            if "max_streak" not in data:
+                data["max_streak"] = random.randint(2, 3)
 
-        # ================== نظامك القديم ==================
-        forced_lose = data["win_streak"] >= 2
+            forced_lose = data["win_streak"] >= data["max_streak"]
 
-        if data["profit_today"] >= 40000:
-            win_rate -= 0.18
-        elif data["profit_today"] >= 20000:
-            win_rate -= 0.08
+            # تقليل النسبة حسب الأرباح اليومية
+            if data["profit_today"] >= 40000:
+                win_rate -= 0.18
+            elif data["profit_today"] >= 20000:
+                win_rate -= 0.08
+        else:
+            forced_lose = False  # لو فيه تحكم يدوي مفيش إجبار
 
+        # تحديد النتيجة
         if forced_lose:
             result = "down" if choice == "up" else "up"
         else:
@@ -117,6 +130,7 @@ class TradeView(View):
 
         else:
             data["win_streak"] = 0
+            data["max_streak"] = random.randint(2, 3)  # حد جديد بعد الخسارة
 
             await wallets.update_one(
                 {"user_id": self.user_id},
@@ -186,7 +200,13 @@ async def trade(interaction: discord.Interaction, amount: int):
         return
 
     if uid not in user_data or user_data[uid]["date"] != today:
-        user_data[uid] = {"date": today, "trades_today": 0, "profit_today": 0, "win_streak": 0}
+        user_data[uid] = {
+            "date": today,
+            "trades_today": 0,
+            "profit_today": 0,
+            "win_streak": 0,
+            "max_streak": random.randint(2, 3)
+        }
 
     data = user_data[uid]
 
