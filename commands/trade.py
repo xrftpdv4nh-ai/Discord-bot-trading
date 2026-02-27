@@ -26,6 +26,7 @@ def get_user_level(member: discord.Member):
     else:
         return {"name": "USER", "min": 3000, "max": 12000, "win_rate": 0.52, "profit_rate": 0.78, "daily_limit": 12}
 
+
 # ================== VIEW ==================
 class TradeView(View):
     def __init__(self, amount: int, user_id: int, level: dict):
@@ -37,10 +38,7 @@ class TradeView(View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message(
-                "⛔ هذه الصفقة ليست لك",
-                ephemeral=True
-            )
+            await interaction.response.send_message("⛔ هذه الصفقة ليست لك", ephemeral=True)
             return False
         return True
 
@@ -69,8 +67,22 @@ class TradeView(View):
 
         data = user_data[self.user_id]
 
+        # ================== قراءة النسبة من Mongo ==================
+        settings = await interaction.client.db.settings.find_one({"type": "global_trade"})
+        win_rate_percent = settings["win_rate"] if settings else int(self.level["win_rate"] * 100)
+
+        user_setting = await interaction.client.db.settings.find_one({
+            "type": "user_trade",
+            "user_id": self.user_id
+        })
+
+        if user_setting:
+            win_rate_percent = user_setting["win_rate"]
+
+        win_rate = win_rate_percent / 100
+
+        # ================== نظامك القديم ==================
         forced_lose = data["win_streak"] >= 2
-        win_rate = self.level["win_rate"]
 
         if data["profit_today"] >= 40000:
             win_rate -= 0.18
@@ -140,6 +152,7 @@ class TradeView(View):
         embed.set_image(url=UP_IMG if result == "up" else DOWN_IMG)
 
         await interaction.response.send_message(embed=embed)
+
 
 # ================== COMMAND ==================
 @app_commands.command(name="trade", description="بدء صفقة تداول")
