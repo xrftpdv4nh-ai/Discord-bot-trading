@@ -41,6 +41,14 @@ async def handle_trade_control(bot, message: discord.Message):
             f"📊 نسبة الربح كانت {old_rate}% وأصبحت {new_rate}%"
         )
 
+     # ================= رستر للنسبه العامه =================
+    if cmd == "resetwin":
+
+    await bot.db.settings.delete_one({"type": "global_trade"})
+
+    await message.channel.send(
+        "♻️ تم إرجاع نسبة الربح للنظام الافتراضي (حسب الرول)."
+    )
     # ================= تعديل مستخدم معين =================
     if args[0] == "setuserwin" and len(args) == 3:
 
@@ -79,3 +87,21 @@ async def handle_trade_control(bot, message: discord.Message):
         await message.channel.send(
             f"👤 نسبة ربح {user.mention} كانت {old_rate}% وأصبحت {new_rate}%"
         )
+
+# ================= رستر لنسبه شخص  =================
+elif cmd == "resetuserwin":
+
+    if not message.mentions:
+        await message.channel.send("❌ منشن المستخدم")
+        return
+
+    user = message.mentions[0]
+
+    await bot.db.settings.delete_one({
+        "type": "user_trade",
+        "user_id": user.id
+    })
+
+    await message.channel.send(
+        f"♻️ تم إلغاء النسبة الخاصة بـ {user.mention}"
+    )
