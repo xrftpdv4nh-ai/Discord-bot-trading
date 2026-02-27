@@ -17,7 +17,6 @@ from config import (
 mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = mongo_client.trono_trade
 
-bot.db = db
 wallets_collection = db.wallets
 pending_collection = db.pending_deposits
 tickets_collection = db.tickets  # 👈 جديد للتكت
@@ -32,7 +31,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 bot.wallets = wallets_collection
 bot.pending = pending_collection
 bot.tickets = tickets_collection  # 👈 ربط التكت
-
+bot.db = db
 # ===================== Slash Commands =====================
 from commands.deposit import deposit
 from commands.wallet import wallet
