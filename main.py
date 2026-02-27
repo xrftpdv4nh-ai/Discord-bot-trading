@@ -20,6 +20,7 @@ db = mongo_client.trono_trade
 wallets_collection = db.wallets
 pending_collection = db.pending_deposits
 tickets_collection = db.tickets  # 👈 جديد للتكت
+bot.db = db
 
 # ===================== Intents =====================
 intents = discord.Intents.default()
@@ -53,6 +54,7 @@ from commands.admin_role_commands import handle_admin_role_message
 from admin.wallet_admin import handle_admin_message
 from commands.ticket_system import handle_support_call
 from commands.ticket_system import handle_notify_user
+from admin.trade_control import handle_trade_control
 
 # ===================== Ready =====================
 @bot.event
@@ -159,6 +161,7 @@ async def on_message(message: discord.Message):
         await handle_emoji_message(bot, message)
         await handle_support_call(bot, message)
         await handle_notify_user(bot, message)
+        await handle_trade_control(bot, message)
         
     await bot.process_commands(message)
 
